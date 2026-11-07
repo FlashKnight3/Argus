@@ -1,1125 +1,430 @@
-/**
- * Argus — SpacetimeDB module.
+/** Argus Supply: local, multi-site shortage and inventory coordination.
  *
- * SpacetimeDB is the single source of truth. Every device and model reads by
- * subscribing to these tables and writes only through the reducers below:
- *
- *   simulator  ──admitPatient / consumeResource / advanceClock──▶ ┐
- *   medic tablet ──admitPatient / setTriage──────────────────────▶ │  module
- *   ML sidecar ──writeForecast / writeInflow / writeRanking──────▶ │  (this file)
- *   commander  ──recordDecision / setWeights / applyWhatIf───────▶ ┘
- *
- * Protocol rules (SALT, START/JumpSTART, RTS, MEDEVAC precedence) run here as
- * deterministic code. The ML sidecar only forecasts and orders within tiers.
- * No recommendation applies itself: evacuation happens only in
- * `recordDecision`, which a human triggers.
+ * All mutations pass through reducers. The FDA worker may import public notices
+ * and write derived projections, but it cannot reserve, ship, or receive stock.
+ * Those transitions require a human site manager.
  */
 import { schema, SenderError, table, t, type InferSchema, type ReducerCtx } from 'spacetimedb/server';
-import {
-  RESOURCES,
-  injurySpec,
-  precedenceDeadline,
-  precedenceFor,
-  protocolFor,
-  retriage,
-  revisedTraumaScore,
-  triage,
-  type Assessment,
-  type ResourceType,
-  type TriageCategory,
-} from './protocols';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Tables
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Singleton (id = 1): scenario clock, playback, settings, evac weights. */
-const simState = table(
-  { name: 'sim_state', public: true },
-  {
-    id: t.u32().primaryKey(),
-    scenarioName: t.string(),
-    scenarioTitle: t.string(),
-    scenarioLengthMin: t.f64(),
-    minute: t.f64(),
-    speed: t.f64(),
-    paused: t.bool(),
-    /** Local triage protocol: 'SALT' or 'START' (START routes children to JumpSTART). */
-    protocol: t.string(),
-    /** EvacScore weights. */
-    wDeterioration: t.f64(),
-    wResourceRelief: t.f64(),
-    wDestinationMatch: t.f64(),
-    /** What-if: hypothetical extra casualties folded into the inflow forecast. */
-    whatIfSurge: t.u32(),
-    /** Minute the ML sidecar last wrote, for the health indicator. */
-    mlMinute: t.f64(),
-    simulatorHeartbeat: t.timestamp(),
-    mlHeartbeat: t.timestamp(),
-  }
-);
-
-const patient = table(
-  { name: 'patient', public: true },
-  {
-    id: t.u32().primaryKey().autoInc(),
-    tag: t.string(),
-    source: t.string(),
-    arrivalMin: t.f64(),
-    age: t.u32(),
-    injuryType: t.string(),
-    mechanism: t.string(),
-    /** Protocol that produced the category: SALT / START / JumpSTART / medic. */
-    triageProtocol: t.string(),
-    category: t.string(),
-    categorySetByMedic: t.bool(),
-    triageTrace: t.string(),
-    hr: t.f64(),
-    sbp: t.f64(),
-    rr: t.f64(),
-    oxygenSat: t.f64(),
-    gcs: t.f64(),
-    tRts: t.u32(),
-    weightedRts: t.f64(),
-    /** Change in weighted RTS per 30 simulated minutes (negative = worsening). */
-    rtsTrend: t.f64(),
-    vitalsMin: t.f64(),
-    evacPrecedence: t.string(),
-    precedenceDeadline: t.f64(),
-    needsSurgery: t.bool(),
-    capability: t.string(),
-    mistCard: t.string(),
-    bedId: t.u32(),
-    /** waiting | bedded | ambulatory | evacuated | deceased */
-    status: t.string(),
-    evacSlotId: t.u32(),
-  }
-);
-
-const bed = table(
-  { name: 'bed', public: true },
-  {
-    id: t.u32().primaryKey(),
-    label: t.string(),
-    patientId: t.u32(),
-  }
-);
-
-const resource = table(
-  { name: 'resource', public: true },
-  {
-    resourceType: t.string().primaryKey(),
-    label: t.string(),
-    unit: t.string(),
-    /** consumable | reusable */
-    kind: t.string(),
-    capacity: t.f64(),
-    /** Consumables: amount used so far. Reusables: units currently held. */
-    inUse: t.f64(),
-    resupplyEtaMin: t.f64(),
-    resupplyAmount: t.f64(),
-  }
-);
-
-const consumptionEvent = table(
-  { name: 'consumption_event', public: true },
-  {
-    id: t.u32().primaryKey().autoInc(),
-    patientId: t.u32().index('btree'),
-    resourceType: t.string(),
-    amount: t.f64(),
-    consumed: t.f64(),
-    startMin: t.f64(),
-    /** 0 = held until the patient leaves. */
-    durationMin: t.f64(),
-    /** queued | active | done */
-    status: t.string(),
-  }
-);
-
-const evacSlot = table(
-  { name: 'evac_slot', public: true },
-  {
-    id: t.u32().primaryKey().autoInc(),
-    mode: t.string(),
-    callsign: t.string(),
-    seats: t.u32(),
-    seatsFilled: t.u32(),
-    openedMin: t.f64(),
-    departMin: t.f64(),
-    destination: t.string(),
-    capability: t.string(),
-    /** open | departed | cancelled */
-    status: t.string(),
-  }
-);
-
-const decision = table(
-  { name: 'decision', public: true },
-  {
-    id: t.u32().primaryKey().autoInc(),
-    slotId: t.u32(),
-    patientId: t.u32(),
-    aiRank: t.u32(),
-    accepted: t.bool(),
-    overrideReason: t.string(),
-    minute: t.f64(),
-    actor: t.string(),
-    at: t.timestamp(),
-  }
-);
-
-const alert = table(
-  { name: 'alert', public: true },
-  {
-    id: t.u32().primaryKey().autoInc(),
-    minute: t.f64(),
-    /** info | amber | red */
-    level: t.string(),
-    subject: t.string(),
-    message: t.string(),
-  }
-);
-
-const forecast = table(
-  { name: 'forecast', public: true },
-  {
-    resourceType: t.string().primaryKey(),
-    computedMin: t.f64(),
-    available: t.f64(),
-    capacity: t.f64(),
-    /** Median minutes until zero; -1 when beyond the horizon. */
-    ttzMedian: t.f64(),
-    ttzLow: t.f64(),
-    ttzHigh: t.f64(),
-    burnPerHour: t.f64(),
-    /** ok | amber | red */
-    level: t.string(),
-    /** JSON: [[minutesAhead, p10, p50, p90], ...] projected availability. */
-    curve: t.string(),
-  }
-);
-
-const inflowForecast = table(
-  { name: 'inflow_forecast', public: true },
-  {
-    id: t.u32().primaryKey(),
-    computedMin: t.f64(),
-    ratePerHour: t.f64(),
-    halfHour: t.f64(),
-    halfHourLow: t.f64(),
-    halfHourHigh: t.f64(),
-    oneHour: t.f64(),
-    oneHourLow: t.f64(),
-    oneHourHigh: t.f64(),
-    ninetyMin: t.f64(),
-    ninetyMinLow: t.f64(),
-    ninetyMinHigh: t.f64(),
-  }
-);
-
-const evacRanking = table(
-  { name: 'evac_ranking', public: true },
-  {
-    id: t.u32().primaryKey().autoInc(),
-    slotId: t.u32().index('btree'),
-    patientId: t.u32(),
-    rank: t.u32(),
-    score: t.f64(),
-    tier: t.u32(),
-    precedence: t.string(),
-    reason: t.string(),
-    /** JSON: [{label, value}] contribution of each factor. */
-    factors: t.string(),
-    computedMin: t.f64(),
-  }
-);
-
-const auditLog = table(
-  { name: 'audit_log', public: true },
-  {
-    id: t.u32().primaryKey().autoInc(),
-    minute: t.f64(),
-    actor: t.string(),
-    action: t.string(),
-    detail: t.string(),
-    at: t.timestamp(),
-  }
-);
-
-const spacetimedb = schema({
-  simState,
-  patient,
-  bed,
-  resource,
-  consumptionEvent,
-  evacSlot,
-  decision,
-  alert,
-  forecast,
-  inflowForecast,
-  evacRanking,
-  auditLog,
+const site = table({ name: 'site', public: true }, {
+  id: t.u32().primaryKey().autoInc(),
+  name: t.string(),
+  region: t.string(),
+  contact: t.string(),
+  active: t.bool(),
+  createdAt: t.timestamp(),
 });
+
+const member = table({ name: 'member', public: true }, {
+  identity: t.string().primaryKey(),
+  name: t.string(),
+  /** admin | manager | viewer | service */
+  role: t.string(),
+  /** 0 for an admin or service identity. */
+  siteId: t.u32(),
+  createdAt: t.timestamp(),
+});
+
+const inventory = table({ name: 'inventory', public: true }, {
+  /** site ID and canonicalized NDC, joined by a colon. */
+  key: t.string().primaryKey(),
+  siteId: t.u32(),
+  ndc: t.string(),
+  label: t.string(),
+  unit: t.string(),
+  onHand: t.f64(),
+  reserved: t.f64(),
+  baselineDaily: t.f64(),
+  safetyStock: t.f64(),
+  /** An optional confirmed FDA shortage key. */
+  shortageKey: t.string(),
+  revision: t.u32(),
+  updatedAt: t.timestamp(),
+});
+
+const stockEvent = table({ name: 'stock_event', public: true }, {
+  id: t.u32().primaryKey().autoInc(),
+  inventoryKey: t.string(),
+  /** receive | use | set | ship | transfer_receive */
+  kind: t.string(),
+  delta: t.f64(),
+  note: t.string(),
+  actor: t.string(),
+  at: t.timestamp(),
+});
+
+const shortage = table({ name: 'shortage', public: true }, {
+  key: t.string().primaryKey(),
+  packageNdc: t.string(),
+  genericName: t.string(),
+  companyName: t.string(),
+  presentation: t.string(),
+  dosageForm: t.string(),
+  status: t.string(),
+  details: t.string(),
+  updateDate: t.string(),
+  rxcui: t.string(),
+  runId: t.string(),
+  active: t.bool(),
+  observedAt: t.timestamp(),
+});
+
+const syncState = table({ name: 'sync_state', public: true }, {
+  id: t.u32().primaryKey(),
+  runId: t.string(),
+  status: t.string(),
+  feedDate: t.string(),
+  recordCount: t.u32(),
+  completedAt: t.timestamp(),
+});
+
+const transfer = table({ name: 'transfer', public: true }, {
+  id: t.u32().primaryKey().autoInc(),
+  sourceSiteId: t.u32(),
+  destSiteId: t.u32(),
+  ndc: t.string(),
+  label: t.string(),
+  quantity: t.f64(),
+  /** requested | reserved | shipped | received | cancelled */
+  status: t.string(),
+  reason: t.string(),
+  requestedBy: t.string(),
+  approvedBy: t.string(),
+  createdAt: t.timestamp(),
+  updatedAt: t.timestamp(),
+});
+
+const forecast = table({ name: 'forecast', public: true }, {
+  key: t.string().primaryKey(),
+  inventoryRevision: t.u32(),
+  computedAt: t.timestamp(),
+  ratePerDay: t.f64(),
+  daysP10: t.f64(),
+  daysMedian: t.f64(),
+  daysP90: t.f64(),
+  /** unknown | stable | watch | critical */
+  risk: t.string(),
+  explanation: t.string(),
+});
+
+const proposal = table({ name: 'proposal', public: true }, {
+  /** Stable fingerprint allows a worker retry without duplicate proposals. */
+  key: t.string().primaryKey(),
+  sourceSiteId: t.u32(),
+  destSiteId: t.u32(),
+  ndc: t.string(),
+  quantity: t.f64(),
+  reason: t.string(),
+  /** pending | accepted | dismissed */
+  status: t.string(),
+  createdAt: t.timestamp(),
+});
+
+const activity = table({ name: 'activity', public: true }, {
+  id: t.u32().primaryKey().autoInc(),
+  actor: t.string(),
+  action: t.string(),
+  detail: t.string(),
+  at: t.timestamp(),
+});
+
+const spacetimedb = schema({ site, member, inventory, stockEvent, shortage, syncState, transfer, forecast, proposal, activity });
 export default spacetimedb;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
 type Ctx = ReducerCtx<InferSchema<typeof spacetimedb>>;
+const SYNC_ID = 1;
 
-const SIM_ID = 1;
-
-function state(ctx: Ctx) {
-  const s = ctx.db.simState.id.find(SIM_ID);
-  if (!s) throw new SenderError('No scenario loaded. Run the simulator or call load_scenario first.');
-  return s;
+function caller(ctx: Ctx): string { return ctx.sender.toHexString(); }
+function currentMember(ctx: Ctx) { return ctx.db.member.identity.find(caller(ctx)); }
+function requireRole(ctx: Ctx, ...roles: string[]) {
+  const m = currentMember(ctx);
+  if (!m || !roles.includes(m.role)) throw new SenderError('This action requires an authorized account.');
+  return m;
 }
-
-function nowMin(ctx: Ctx): number {
-  return ctx.db.simState.id.find(SIM_ID)?.minute ?? 0;
+function requireSite(ctx: Ctx, siteId: number) {
+  const m = requireRole(ctx, 'admin', 'manager');
+  if (m.role !== 'admin' && m.siteId !== siteId) throw new SenderError('You manage a different site.');
+  if (!ctx.db.site.id.find(siteId)) throw new SenderError('Site not found.');
+  return m;
 }
-
-function actorOf(ctx: Ctx): string {
-  return ctx.sender.toHexString().slice(0, 8);
+function requireWorker(ctx: Ctx) { return requireRole(ctx, 'admin', 'service'); }
+function positive(value: number, label: string) {
+  if (!Number.isFinite(value) || value <= 0) throw new SenderError(`${label} must be positive.`);
 }
-
-function audit(ctx: Ctx, action: string, detail: string) {
-  ctx.db.auditLog.insert({
-    id: 0,
-    minute: nowMin(ctx),
-    actor: actorOf(ctx),
-    action,
-    detail,
-    at: ctx.timestamp,
-  });
+function nonnegative(value: number, label: string) {
+  if (!Number.isFinite(value) || value < 0) throw new SenderError(`${label} must be zero or greater.`);
 }
-
-function raiseAlert(ctx: Ctx, level: 'info' | 'amber' | 'red', subject: string, message: string) {
-  ctx.db.alert.insert({ id: 0, minute: nowMin(ctx), level, subject, message });
+function ndc(value: string): string {
+  const digits = value.replace(/[^0-9]/g, '');
+  if (digits.length < 10 || digits.length > 11) throw new SenderError('Enter a 10–11 digit package NDC.');
+  return digits;
 }
-
-function fmtMin(m: number): string {
-  const total = Math.max(0, Math.round(m));
-  const h = Math.floor(total / 60);
-  const mm = String(total % 60).padStart(2, '0');
-  return `T+${h}:${mm}`;
+function invKey(siteId: number, code: string) { return `${siteId}:${code}`; }
+function log(ctx: Ctx, action: string, detail: string) {
+  ctx.db.activity.insert({ id: 0, actor: caller(ctx), action, detail, at: ctx.timestamp });
 }
-
-function getResource(ctx: Ctx, type: string) {
-  const r = ctx.db.resource.resourceType.find(type);
-  if (!r) throw new SenderError(`Unknown resource type '${type}'`);
-  return r;
+function stockLog(ctx: Ctx, key: string, kind: string, delta: number, note: string) {
+  ctx.db.stockEvent.insert({ id: 0, inventoryKey: key, kind, delta, note, actor: caller(ctx), at: ctx.timestamp });
 }
-
-function setInUse(ctx: Ctx, type: string, delta: number) {
-  const r = ctx.db.resource.resourceType.find(type);
-  if (!r) return;
-  ctx.db.resource.resourceType.update({ ...r, inUse: Math.max(0, r.inUse + delta) });
-}
-
-function available(r: { capacity: number; inUse: number }): number {
-  return r.capacity - r.inUse;
-}
-
-function freeBed(ctx: Ctx) {
-  let best: { id: number; label: string; patientId: number } | undefined;
-  for (const b of ctx.db.bed.iter()) {
-    if (b.patientId === 0 && (!best || b.id < best.id)) best = b;
-  }
-  return best;
-}
-
-function syncBedResource(ctx: Ctx) {
-  let used = 0;
-  let total = 0;
-  for (const b of ctx.db.bed.iter()) {
-    total += 1;
-    if (b.patientId !== 0) used += 1;
-  }
-  const r = ctx.db.resource.resourceType.find('bed');
-  if (r) ctx.db.resource.resourceType.update({ ...r, capacity: total, inUse: used });
-}
-
-/** Patients who need a bed: everyone except ambulatory Minimal casualties. */
-function needsBed(category: string): boolean {
-  return category === 'immediate' || category === 'delayed' || category === 'expectant';
-}
-
-/** Put a patient in a bed if one is free; otherwise they wait. */
-function placePatient(ctx: Ctx, p: ReturnType<typeof ctx.db.patient.id.find> & {}) {
-  if (p.status === 'evacuated' || p.status === 'deceased') return p;
-  if (!needsBed(p.category)) {
-    if (p.bedId !== 0) releaseBed(ctx, p.bedId);
-    const next = { ...p, bedId: 0, status: 'ambulatory' };
-    ctx.db.patient.id.update(next);
-    return next;
-  }
-  if (p.bedId !== 0) return p;
-  const b = freeBed(ctx);
-  if (!b) {
-    const next = { ...p, status: 'waiting' };
-    ctx.db.patient.id.update(next);
-    return next;
-  }
-  ctx.db.bed.id.update({ ...b, patientId: p.id });
-  const next = { ...p, bedId: b.id, status: 'bedded' };
-  ctx.db.patient.id.update(next);
-  syncBedResource(ctx);
-  return next;
-}
-
-function releaseBed(ctx: Ctx, bedId: number) {
-  const b = ctx.db.bed.id.find(bedId);
-  if (b) ctx.db.bed.id.update({ ...b, patientId: 0 });
-  syncBedResource(ctx);
-}
-
-/** Fill free beds with waiting patients, most severe first, then by arrival. */
-function backfillBeds(ctx: Ctx) {
-  const order: Record<string, number> = { immediate: 0, delayed: 1, expectant: 2 };
-  const waiting = [...ctx.db.patient.iter()]
-    .filter(p => p.status === 'waiting')
-    .sort((a, b) => (order[a.category] ?? 9) - (order[b.category] ?? 9) || a.arrivalMin - b.arrivalMin);
-  for (const p of waiting) {
-    if (!freeBed(ctx)) break;
-    placePatient(ctx, p);
-  }
-}
-
-/** Start queued reusable-resource events (OR, vents) when capacity frees up. */
-function startQueued(ctx: Ctx, now: number) {
-  const queued = [...ctx.db.consumptionEvent.iter()]
-    .filter(e => e.status === 'queued')
-    .sort((a, b) => a.startMin - b.startMin || a.id - b.id);
-  for (const e of queued) {
-    const r = ctx.db.resource.resourceType.find(e.resourceType);
-    if (!r || available(r) < e.amount) continue;
-    ctx.db.consumptionEvent.id.update({ ...e, status: 'active', startMin: now });
-    setInUse(ctx, e.resourceType, e.amount);
-  }
-}
-
-/** End every active hold for a patient (on evacuation or death). */
-function releasePatientResources(ctx: Ctx, patientId: number) {
-  for (const e of [...ctx.db.consumptionEvent.patientId.filter(patientId)]) {
-    if (e.status === 'done') continue;
-    const r = ctx.db.resource.resourceType.find(e.resourceType);
-    if (r && r.kind === 'reusable' && e.status === 'active') setInUse(ctx, e.resourceType, -e.amount);
-    ctx.db.consumptionEvent.id.update({ ...e, status: 'done' });
-  }
-}
-
-function seedResource(ctx: Ctx, type: ResourceType, capacity: number) {
-  const spec = RESOURCES[type];
-  ctx.db.resource.insert({
-    resourceType: type,
-    label: spec.label,
-    unit: spec.unit,
-    kind: spec.kind,
-    capacity,
-    inUse: 0,
-    resupplyEtaMin: -1,
-    resupplyAmount: 0,
-  });
-}
-
-function clearAll(ctx: Ctx) {
-  ctx.db.patient.clear();
-  ctx.db.bed.clear();
-  ctx.db.resource.clear();
-  ctx.db.consumptionEvent.clear();
-  ctx.db.evacSlot.clear();
-  ctx.db.decision.clear();
-  ctx.db.alert.clear();
-  ctx.db.forecast.clear();
-  ctx.db.inflowForecast.clear();
-  ctx.db.evacRanking.clear();
-  ctx.db.auditLog.clear();
-  ctx.db.simState.clear();
-}
-
-function parseAssessment(json: string): Assessment {
-  if (!json) return {};
-  try {
-    const v = JSON.parse(json);
-    return v && typeof v === 'object' ? (v as Assessment) : {};
-  } catch {
-    throw new SenderError('assessment must be a JSON object');
-  }
-}
-
-const CATEGORIES: TriageCategory[] = ['immediate', 'delayed', 'minimal', 'expectant', 'dead'];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Lifecycle
-// ─────────────────────────────────────────────────────────────────────────────
 
 export const init = spacetimedb.init(_ctx => {
-  // State is seeded by `load_scenario`, so a fresh publish shows an empty board.
+  // The first operator explicitly creates the network. No synthetic stock is seeded.
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Scenario & clock (simulator + top bar)
-// ─────────────────────────────────────────────────────────────────────────────
-
-export const loadScenario = spacetimedb.reducer(
-  {
-    name: t.string(),
-    title: t.string(),
-    lengthMin: t.f64(),
-    beds: t.u32(),
-    bloodUnits: t.f64(),
-    oxygenCylinders: t.f64(),
-    vents: t.u32(),
-    orTables: t.u32(),
-    protocol: t.string(),
-  },
+export const bootstrapNetwork = spacetimedb.reducer(
+  { ownerName: t.string(), siteName: t.string(), region: t.string() },
   (ctx, a) => {
-    if (a.beds === 0 || a.beds > 500) throw new SenderError('beds must be 1–500');
-    if (a.protocol !== 'SALT' && a.protocol !== 'START') throw new SenderError('protocol must be SALT or START');
-    clearAll(ctx);
-    ctx.db.simState.insert({
-      id: SIM_ID,
-      scenarioName: a.name,
-      scenarioTitle: a.title,
-      scenarioLengthMin: a.lengthMin,
-      minute: 0,
-      speed: 30,
-      paused: true,
-      protocol: a.protocol,
-      wDeterioration: 0.5,
-      wResourceRelief: 0.3,
-      wDestinationMatch: 0.2,
-      whatIfSurge: 0,
-      mlMinute: -1,
-      simulatorHeartbeat: ctx.timestamp,
-      mlHeartbeat: ctx.timestamp,
-    });
-    for (let i = 1; i <= a.beds; i++) {
-      ctx.db.bed.insert({ id: i, label: `B${String(i).padStart(2, '0')}`, patientId: 0 });
-    }
-    seedResource(ctx, 'bed', a.beds);
-    seedResource(ctx, 'blood_unit', a.bloodUnits);
-    seedResource(ctx, 'o2', a.oxygenCylinders);
-    seedResource(ctx, 'vent', a.vents);
-    seedResource(ctx, 'or_table', a.orTables);
-    audit(ctx, 'scenario.load', `${a.title} — ${a.beds} beds, ${a.bloodUnits} blood, ${a.vents} vents, ${a.orTables} OR`);
-    raiseAlert(ctx, 'info', 'Scenario', `${a.title} loaded. Protocol: ${a.protocol}. All figures are synthetic.`);
+    for (const _m of ctx.db.member.iter()) throw new SenderError('The network has already been created.');
+    if (!a.ownerName.trim() || !a.siteName.trim()) throw new SenderError('Name and first site are required.');
+    const s = ctx.db.site.insert({ id: 0, name: a.siteName.trim(), region: a.region.trim(), contact: '', active: true, createdAt: ctx.timestamp });
+    ctx.db.member.insert({ identity: caller(ctx), name: a.ownerName.trim(), role: 'admin', siteId: 0, createdAt: ctx.timestamp });
+    ctx.db.syncState.insert({ id: SYNC_ID, runId: '', status: 'never', feedDate: '', recordCount: 0, completedAt: ctx.timestamp });
+    log(ctx, 'network.bootstrap', `Created ${s.name}`);
   }
 );
 
-export const setPlayback = spacetimedb.reducer(
-  { paused: t.bool(), speed: t.f64() },
-  (ctx, { paused, speed }) => {
-    const s = state(ctx);
-    if (!(speed >= 1 && speed <= 120)) throw new SenderError('speed must be 1–120×');
-    ctx.db.simState.id.update({ ...s, paused, speed });
-    if (s.paused !== paused) audit(ctx, paused ? 'clock.pause' : 'clock.play', `at ${speed}×`);
+export const createSite = spacetimedb.reducer(
+  { name: t.string(), region: t.string(), contact: t.string() },
+  (ctx, a) => {
+    requireRole(ctx, 'admin');
+    if (!a.name.trim()) throw new SenderError('Site name is required.');
+    const s = ctx.db.site.insert({ id: 0, name: a.name.trim(), region: a.region.trim(), contact: a.contact.trim(), active: true, createdAt: ctx.timestamp });
+    log(ctx, 'site.create', `${s.id}: ${s.name}`);
   }
 );
 
-/** Called by the simulator every tick with the new scenario minute. */
-export const advanceClock = spacetimedb.reducer({ minute: t.f64() }, (ctx, { minute }) => {
-  const s = state(ctx);
-  if (minute < s.minute) throw new SenderError('clock cannot go backwards');
-  ctx.db.simState.id.update({ ...s, minute, simulatorHeartbeat: ctx.timestamp });
-
-  // Consumption accounting.
-  for (const e of [...ctx.db.consumptionEvent.iter()]) {
-    if (e.status !== 'active') continue;
-    const r = ctx.db.resource.resourceType.find(e.resourceType);
-    if (!r) continue;
-    if (r.kind === 'consumable') {
-      const frac = e.durationMin <= 0 ? 1 : Math.min(1, (minute - e.startMin) / e.durationMin);
-      const target = e.amount * Math.max(0, frac);
-      const want = target - e.consumed;
-      const give = Math.max(0, Math.min(want, available(r)));
-      if (give > 0) setInUse(ctx, e.resourceType, give);
-      const consumed = e.consumed + give;
-      const exhausted = want > 0 && give < want - 1e-9;
-      ctx.db.consumptionEvent.id.update({
-        ...e,
-        consumed,
-        status: frac >= 1 || exhausted ? 'done' : 'active',
-      });
-      if (exhausted) {
-        raiseAlert(ctx, 'red', r.label, `${r.label} exhausted — demand for patient #${e.patientId} unmet at ${fmtMin(minute)}`);
-      }
-    } else if (e.durationMin > 0 && minute - e.startMin >= e.durationMin) {
-      setInUse(ctx, e.resourceType, -e.amount);
-      ctx.db.consumptionEvent.id.update({ ...e, status: 'done' });
-    }
+export const grantMember = spacetimedb.reducer(
+  { identity: t.string(), name: t.string(), role: t.string(), siteId: t.u32() },
+  (ctx, a) => {
+    requireRole(ctx, 'admin');
+    if (!/^[0-9a-f]{64}$/i.test(a.identity)) throw new SenderError('Identity must be a 64-character hex string.');
+    if (!['admin', 'manager', 'viewer', 'service'].includes(a.role)) throw new SenderError('Unknown role.');
+    if (['manager', 'viewer'].includes(a.role) && !ctx.db.site.id.find(a.siteId)) throw new SenderError('Site not found.');
+    const row = { identity: a.identity.toLowerCase(), name: a.name.trim() || a.role, role: a.role,
+      siteId: a.role === 'manager' || a.role === 'viewer' ? a.siteId : 0, createdAt: ctx.timestamp };
+    const old = ctx.db.member.identity.find(row.identity);
+    if (old) ctx.db.member.identity.update({ ...old, ...row, createdAt: old.createdAt });
+    else ctx.db.member.insert(row);
+    log(ctx, 'member.grant', `${row.identity.slice(0, 8)} → ${row.role}${row.siteId ? ` at ${row.siteId}` : ''}`);
   }
-  startQueued(ctx, minute);
+);
 
-  // Scheduled resupply.
-  for (const r of [...ctx.db.resource.iter()]) {
-    if (r.resupplyEtaMin >= 0 && minute >= r.resupplyEtaMin) {
-      ctx.db.resource.resourceType.update({
-        ...r,
-        capacity: r.capacity + r.resupplyAmount,
-        resupplyEtaMin: -1,
-        resupplyAmount: 0,
-      });
-      raiseAlert(ctx, 'info', r.label, `Resupply arrived: +${r.resupplyAmount} ${r.unit}`);
-    }
+export const upsertInventory = spacetimedb.reducer(
+  { siteId: t.u32(), packageNdc: t.string(), label: t.string(), unit: t.string(), onHand: t.f64(),
+    baselineDaily: t.f64(), safetyStock: t.f64(), shortageKey: t.string() },
+  (ctx, a) => {
+    requireSite(ctx, a.siteId);
+    nonnegative(a.onHand, 'On-hand stock');
+    nonnegative(a.baselineDaily, 'Daily usage');
+    nonnegative(a.safetyStock, 'Safety stock');
+    if (!a.label.trim() || !a.unit.trim()) throw new SenderError('Product name and unit are required.');
+    const code = ndc(a.packageNdc);
+    const key = invKey(a.siteId, code);
+    const old = ctx.db.inventory.key.find(key);
+    if (old && a.onHand < old.reserved) throw new SenderError('On-hand stock cannot fall below reservations.');
+    if (a.shortageKey && !ctx.db.shortage.key.find(a.shortageKey)) throw new SenderError('FDA record not found.');
+    const row = { key, siteId: a.siteId, ndc: code, label: a.label.trim(), unit: a.unit.trim(),
+      onHand: a.onHand, reserved: old?.reserved ?? 0, baselineDaily: a.baselineDaily,
+      safetyStock: a.safetyStock, shortageKey: a.shortageKey, revision: (old?.revision ?? 0) + 1,
+      updatedAt: ctx.timestamp };
+    if (old) ctx.db.inventory.key.update(row);
+    else ctx.db.inventory.insert(row);
+    stockLog(ctx, key, 'set', a.onHand - (old?.onHand ?? 0), old ? 'Inventory corrected' : 'Opening inventory');
+    log(ctx, 'inventory.upsert', `${key}: ${a.onHand} ${row.unit}`);
   }
+);
 
-  // Departures.
-  for (const slot of [...ctx.db.evacSlot.iter()]) {
-    if (slot.status === 'open' && minute >= slot.departMin) {
-      ctx.db.evacSlot.id.update({ ...slot, status: 'departed' });
-      raiseAlert(
-        ctx,
-        'info',
-        slot.callsign,
-        `${slot.callsign} departed with ${slot.seatsFilled}/${slot.seats} seats filled`
-      );
-      for (const r of [...ctx.db.evacRanking.slotId.filter(slot.id)]) ctx.db.evacRanking.delete(r);
-    }
+export const recordStock = spacetimedb.reducer(
+  { inventoryKey: t.string(), kind: t.string(), quantity: t.f64(), note: t.string() },
+  (ctx, a) => {
+    const item = ctx.db.inventory.key.find(a.inventoryKey);
+    if (!item) throw new SenderError('Inventory item not found.');
+    requireSite(ctx, item.siteId);
+    if (a.kind !== 'receive' && a.kind !== 'use') throw new SenderError('Choose receive or use.');
+    positive(a.quantity, 'Quantity');
+    if (a.kind === 'use' && a.quantity > item.onHand - item.reserved) throw new SenderError('Not enough unreserved stock.');
+    const delta = a.kind === 'use' ? -a.quantity : a.quantity;
+    ctx.db.inventory.key.update({ ...item, onHand: item.onHand + delta, revision: item.revision + 1, updatedAt: ctx.timestamp });
+    stockLog(ctx, item.key, a.kind, delta, a.note.trim());
+    log(ctx, `stock.${a.kind}`, `${item.key}: ${delta} ${item.unit}`);
   }
+);
+
+function requestTransfer(ctx: Ctx, sourceSiteId: number, destSiteId: number, code: string, quantity: number, reason: string) {
+  if (sourceSiteId === destSiteId) throw new SenderError('Choose two different sites.');
+  positive(quantity, 'Quantity');
+  if (!ctx.db.site.id.find(destSiteId)) throw new SenderError('Destination site not found.');
+  const source = ctx.db.inventory.key.find(invKey(sourceSiteId, code));
+  if (!source) throw new SenderError('Source site does not stock this product.');
+  const dest = ctx.db.inventory.key.find(invKey(destSiteId, code));
+  if (dest && dest.unit.trim().toLowerCase() !== source.unit.trim().toLowerCase())
+    throw new SenderError('Source and destination units must match before transfer.');
+  const row = ctx.db.transfer.insert({ id: 0, sourceSiteId, destSiteId, ndc: code, label: source.label,
+    quantity, status: 'requested', reason: reason.trim(), requestedBy: caller(ctx), approvedBy: '',
+    createdAt: ctx.timestamp, updatedAt: ctx.timestamp });
+  log(ctx, 'transfer.request', `#${row.id}: ${quantity} ${source.unit} ${source.label}, ${sourceSiteId} → ${destSiteId}`);
+}
+
+export const createTransfer = spacetimedb.reducer(
+  { sourceSiteId: t.u32(), destSiteId: t.u32(), packageNdc: t.string(), quantity: t.f64(), reason: t.string() },
+  (ctx, a) => {
+    requireSite(ctx, a.destSiteId);
+    requestTransfer(ctx, a.sourceSiteId, a.destSiteId, ndc(a.packageNdc), a.quantity, a.reason);
+  }
+);
+
+export const approveTransfer = spacetimedb.reducer({ transferId: t.u32() }, (ctx, a) => {
+  const tr = ctx.db.transfer.id.find(a.transferId);
+  if (!tr || tr.status !== 'requested') throw new SenderError('Transfer is not awaiting approval.');
+  requireSite(ctx, tr.sourceSiteId);
+  const source = ctx.db.inventory.key.find(invKey(tr.sourceSiteId, tr.ndc));
+  if (!source || source.onHand - source.reserved < tr.quantity) throw new SenderError('Insufficient unreserved stock.');
+  ctx.db.inventory.key.update({ ...source, reserved: source.reserved + tr.quantity, revision: source.revision + 1, updatedAt: ctx.timestamp });
+  ctx.db.transfer.id.update({ ...tr, status: 'reserved', approvedBy: caller(ctx), updatedAt: ctx.timestamp });
+  log(ctx, 'transfer.reserve', `#${tr.id}: ${tr.quantity} ${source.unit}`);
 });
 
-export const setProtocol = spacetimedb.reducer({ protocol: t.string() }, (ctx, { protocol }) => {
-  if (protocol !== 'SALT' && protocol !== 'START') throw new SenderError('protocol must be SALT or START');
-  const s = state(ctx);
-  ctx.db.simState.id.update({ ...s, protocol });
-  audit(ctx, 'settings.protocol', `Local protocol → ${protocol}`);
+export const shipTransfer = spacetimedb.reducer({ transferId: t.u32() }, (ctx, a) => {
+  const tr = ctx.db.transfer.id.find(a.transferId);
+  if (!tr || tr.status !== 'reserved') throw new SenderError('Transfer is not reserved.');
+  requireSite(ctx, tr.sourceSiteId);
+  const source = ctx.db.inventory.key.find(invKey(tr.sourceSiteId, tr.ndc));
+  if (!source || source.reserved < tr.quantity || source.onHand < tr.quantity) throw new SenderError('Reservation is inconsistent.');
+  ctx.db.inventory.key.update({ ...source, onHand: source.onHand - tr.quantity,
+    reserved: source.reserved - tr.quantity, revision: source.revision + 1, updatedAt: ctx.timestamp });
+  stockLog(ctx, source.key, 'ship', -tr.quantity, `Transfer #${tr.id}`);
+  ctx.db.transfer.id.update({ ...tr, status: 'shipped', updatedAt: ctx.timestamp });
+  log(ctx, 'transfer.ship', `#${tr.id}`);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Patients (simulator + medic intake)
-// ─────────────────────────────────────────────────────────────────────────────
-
-export const admitPatient = spacetimedb.reducer(
-  {
-    tag: t.string(),
-    source: t.string(),
-    age: t.u32(),
-    injuryType: t.string(),
-    mechanism: t.string(),
-    hr: t.f64(),
-    sbp: t.f64(),
-    rr: t.f64(),
-    oxygenSat: t.f64(),
-    gcs: t.f64(),
-    /** JSON of {@link Assessment}; empty string derives answers from vitals. */
-    assessment: t.string(),
-    /** Optional medic category ('' = let the protocol decide). */
-    medicCategory: t.string(),
-    mistCard: t.string(),
-  },
-  (ctx, a) => {
-    const s = state(ctx);
-    if (a.gcs < 3 || a.gcs > 15) throw new SenderError('GCS must be 3–15');
-    const vitals = { hr: a.hr, sbp: a.sbp, rr: a.rr, spo2: a.oxygenSat, gcs: a.gcs };
-    const assessment = parseAssessment(a.assessment);
-    const local = s.protocol === 'START' ? 'START' : 'SALT';
-    const result = triage(local, a.age, vitals, assessment);
-
-    let category: string = result.category;
-    let categorySetByMedic = false;
-    const trace = [...result.trace];
-    if (a.medicCategory) {
-      if (!CATEGORIES.includes(a.medicCategory as TriageCategory)) {
-        throw new SenderError(`medicCategory must be one of ${CATEGORIES.join(', ')}`);
-      }
-      if (a.medicCategory !== category) {
-        trace.push(`Medic set category → ${a.medicCategory} (protocol said ${category})`);
-        category = a.medicCategory;
-        categorySetByMedic = true;
-      }
-    }
-
-    const rts = revisedTraumaScore(vitals);
-    const injury = injurySpec(a.injuryType);
-    const precedence = precedenceFor(category, injury.needsSurgery);
-
-    const inserted = ctx.db.patient.insert({
-      id: 0,
-      tag: a.tag,
-      source: a.source,
-      arrivalMin: s.minute,
-      age: a.age,
-      injuryType: a.injuryType,
-      mechanism: a.mechanism,
-      triageProtocol: categorySetByMedic ? `${protocolFor(local, a.age)} + medic` : result.protocol,
-      category,
-      categorySetByMedic,
-      triageTrace: JSON.stringify(trace),
-      hr: a.hr,
-      sbp: a.sbp,
-      rr: a.rr,
-      oxygenSat: a.oxygenSat,
-      gcs: a.gcs,
-      tRts: rts.tRts,
-      weightedRts: rts.weighted,
-      rtsTrend: 0,
-      vitalsMin: s.minute,
-      evacPrecedence: precedence ?? '',
-      precedenceDeadline: precedenceDeadline(s.minute, precedence),
-      needsSurgery: injury.needsSurgery,
-      capability: injury.capability,
-      mistCard: a.mistCard,
-      bedId: 0,
-      status: category === 'dead' ? 'deceased' : 'waiting',
-      evacSlotId: 0,
-    });
-    const placed = placePatient(ctx, inserted);
-    if (placed.status === 'waiting') {
-      raiseAlert(ctx, 'amber', 'Beds', `No free bed for ${a.tag} (${category}) — holding at intake`);
-    }
-    if (a.source === 'medic') {
-      audit(ctx, 'patient.intake', `${a.tag}: ${result.protocol} → ${category}, T-RTS ${rts.tRts}`);
-    }
-  }
-);
-
-export const updateVitals = spacetimedb.reducer(
-  {
-    patientId: t.u32(),
-    hr: t.f64(),
-    sbp: t.f64(),
-    rr: t.f64(),
-    oxygenSat: t.f64(),
-    gcs: t.f64(),
-  },
-  (ctx, a) => {
-    const s = state(ctx);
-    const p = ctx.db.patient.id.find(a.patientId);
-    if (!p) throw new SenderError(`No patient #${a.patientId}`);
-    if (p.status === 'evacuated' || p.status === 'deceased') return;
-    const vitals = { hr: a.hr, sbp: a.sbp, rr: a.rr, spo2: a.oxygenSat, gcs: a.gcs };
-    const rts = revisedTraumaScore(vitals);
-    const dt = Math.max(1, s.minute - p.vitalsMin);
-    const trend = ((rts.weighted - p.weightedRts) / dt) * 30;
-    const local = s.protocol === 'START' ? 'START' : 'SALT';
-    const next = triage(local, p.age, vitals, { hemorrhageControlled: true });
-    const re = retriage(p.category, p.categorySetByMedic, next);
-
-    let trace = p.triageTrace;
-    let precedence = p.evacPrecedence;
-    let deadline = p.precedenceDeadline;
-    if (re.changed) {
-      const steps: string[] = JSON.parse(p.triageTrace || '[]');
-      steps.push(`${fmtMin(s.minute)} re-triage (${next.protocol}): ${p.category} → ${re.category}`);
-      trace = JSON.stringify(steps);
-      const np = precedenceFor(re.category, p.needsSurgery);
-      precedence = np ?? '';
-      // A tighter window starts from now, but never extends the old deadline.
-      const nd = precedenceDeadline(s.minute, np);
-      deadline = p.precedenceDeadline < 0 ? nd : Math.min(p.precedenceDeadline, nd);
-      raiseAlert(ctx, 'amber', p.tag, `${p.tag} deteriorating — re-triaged ${p.category} → ${re.category}`);
-    }
-    const updated = {
-      ...p,
-      hr: a.hr,
-      sbp: a.sbp,
-      rr: a.rr,
-      oxygenSat: a.oxygenSat,
-      gcs: a.gcs,
-      tRts: rts.tRts,
-      weightedRts: rts.weighted,
-      rtsTrend: Math.round(trend * 100) / 100,
-      vitalsMin: s.minute,
-      category: re.category,
-      triageTrace: trace,
-      evacPrecedence: precedence,
-      precedenceDeadline: deadline,
-    };
-    ctx.db.patient.id.update(updated);
-    if (re.changed) {
-      placePatient(ctx, updated);
-    }
-  }
-);
-
-/** Manual triage. The only way a patient becomes Expectant. */
-export const setTriage = spacetimedb.reducer(
-  { patientId: t.u32(), category: t.string(), reason: t.string() },
-  (ctx, { patientId, category, reason }) => {
-    const s = state(ctx);
-    if (!CATEGORIES.includes(category as TriageCategory)) {
-      throw new SenderError(`category must be one of ${CATEGORIES.join(', ')}`);
-    }
-    if (!reason.trim()) throw new SenderError('A reason is required for a manual triage change');
-    const p = ctx.db.patient.id.find(patientId);
-    if (!p) throw new SenderError(`No patient #${patientId}`);
-    const steps: string[] = JSON.parse(p.triageTrace || '[]');
-    steps.push(`${fmtMin(s.minute)} medic: ${p.category} → ${category} — ${reason}`);
-    const precedence = precedenceFor(category, p.needsSurgery);
-    let updated = {
-      ...p,
-      category,
-      categorySetByMedic: true,
-      triageProtocol: p.triageProtocol.endsWith('+ medic') ? p.triageProtocol : `${p.triageProtocol} + medic`,
-      triageTrace: JSON.stringify(steps),
-      evacPrecedence: precedence ?? '',
-      precedenceDeadline: precedenceDeadline(s.minute, precedence),
-    };
-    if (category === 'dead') {
-      releasePatientResources(ctx, p.id);
-      if (p.bedId !== 0) releaseBed(ctx, p.bedId);
-      updated = { ...updated, bedId: 0, status: 'deceased' };
-      ctx.db.patient.id.update(updated);
-      backfillBeds(ctx);
-    } else {
-      ctx.db.patient.id.update(updated);
-      placePatient(ctx, updated);
-    }
-    audit(ctx, 'patient.triage', `${p.tag}: ${p.category} → ${category} — ${reason}`);
-  }
-);
-
-export const assignBed = spacetimedb.reducer(
-  { patientId: t.u32(), bedId: t.u32() },
-  (ctx, { patientId, bedId }) => {
-    const p = ctx.db.patient.id.find(patientId);
-    if (!p) throw new SenderError(`No patient #${patientId}`);
-    const b = ctx.db.bed.id.find(bedId);
-    if (!b) throw new SenderError(`No bed #${bedId}`);
-    if (b.patientId !== 0 && b.patientId !== patientId) throw new SenderError(`${b.label} is occupied`);
-    if (p.bedId !== 0 && p.bedId !== bedId) releaseBed(ctx, p.bedId);
-    ctx.db.bed.id.update({ ...b, patientId });
-    ctx.db.patient.id.update({ ...p, bedId, status: 'bedded' });
-    syncBedResource(ctx);
-    audit(ctx, 'patient.bed', `${p.tag} → ${b.label}`);
-  }
-);
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Resources
-// ─────────────────────────────────────────────────────────────────────────────
-
-export const consumeResource = spacetimedb.reducer(
-  { patientId: t.u32(), resourceType: t.string(), amount: t.f64(), durationMin: t.f64() },
-  (ctx, a) => {
-    const s = state(ctx);
-    const p = ctx.db.patient.id.find(a.patientId);
-    if (!p) throw new SenderError(`No patient #${a.patientId}`);
-    if (p.status === 'evacuated' || p.status === 'deceased') return;
-    if (!(a.amount > 0)) throw new SenderError('amount must be positive');
-    const r = getResource(ctx, a.resourceType);
-    if (r.resourceType === 'bed') throw new SenderError('Use assign_bed for beds');
-
-    let status = 'active';
-    if (r.kind === 'reusable') {
-      if (available(r) >= a.amount) setInUse(ctx, r.resourceType, a.amount);
-      else {
-        status = 'queued';
-        raiseAlert(ctx, 'amber', r.label, `No ${r.label.toLowerCase()} free — ${p.tag} queued`);
-      }
-    }
-    ctx.db.consumptionEvent.insert({
-      id: 0,
-      patientId: p.id,
-      resourceType: r.resourceType,
-      amount: a.amount,
-      consumed: 0,
-      startMin: s.minute,
-      durationMin: a.durationMin,
-      status,
-    });
-  }
-);
-
-export const scheduleResupply = spacetimedb.reducer(
-  { resourceType: t.string(), amount: t.f64(), etaMin: t.f64() },
-  (ctx, { resourceType, amount, etaMin }) => {
-    const r = getResource(ctx, resourceType);
-    ctx.db.resource.resourceType.update({ ...r, resupplyEtaMin: etaMin, resupplyAmount: amount });
-    audit(ctx, 'resource.resupply', `${r.label}: +${amount} ${r.unit} due ${fmtMin(etaMin)}`);
-  }
-);
-
-// ─────────────────────────────────────────────────────────────────────────────
-// What-if panel
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * kind:
- *  - 'surge'          → amount hypothetical extra casualties in the next hour (forecast only)
- *  - 'lose:<type>'    → remove `amount` units of a resource from the board (e.g. lose 1 vent)
- *  - 'gain:<type>'    → add `amount` units
- */
-export const applyWhatIf = spacetimedb.reducer(
-  { kind: t.string(), amount: t.f64() },
-  (ctx, { kind, amount }) => {
-    const s = state(ctx);
-    if (!(amount > 0)) throw new SenderError('amount must be positive');
-    if (kind === 'surge') {
-      ctx.db.simState.id.update({ ...s, whatIfSurge: s.whatIfSurge + Math.round(amount) });
-      audit(ctx, 'whatif.surge', `+${Math.round(amount)} hypothetical casualties`);
-      raiseAlert(ctx, 'info', 'What-if', `Forecast now includes +${s.whatIfSurge + Math.round(amount)} hypothetical casualties`);
-      return;
-    }
-    const [op, type] = kind.split(':');
-    if ((op !== 'lose' && op !== 'gain') || !type) throw new SenderError(`Unknown what-if '${kind}'`);
-    if (type === 'bed') throw new SenderError('Beds cannot be changed from the what-if panel');
-    const r = getResource(ctx, type);
-    const capacity = op === 'lose' ? Math.max(0, r.capacity - amount) : r.capacity + amount;
-    ctx.db.resource.resourceType.update({ ...r, capacity });
-    audit(ctx, `whatif.${op}`, `${op === 'lose' ? '−' : '+'}${amount} ${r.unit} ${r.label}`);
-    raiseAlert(
-      ctx,
-      op === 'lose' ? 'amber' : 'info',
-      r.label,
-      `${op === 'lose' ? 'Lost' : 'Added'} ${amount} ${r.unit} — capacity now ${capacity}`
-    );
-    if (r.kind === 'reusable' && r.inUse > capacity) {
-      raiseAlert(ctx, 'red', r.label, `${r.label} over capacity: ${r.inUse} in use, ${capacity} available`);
-    }
-  }
-);
-
-export const clearWhatIf = spacetimedb.reducer(ctx => {
-  const s = state(ctx);
-  ctx.db.simState.id.update({ ...s, whatIfSurge: 0 });
-  audit(ctx, 'whatif.clear', 'Hypothetical surge cleared');
+export const receiveTransfer = spacetimedb.reducer({ transferId: t.u32() }, (ctx, a) => {
+  const tr = ctx.db.transfer.id.find(a.transferId);
+  if (!tr || tr.status !== 'shipped') throw new SenderError('Transfer has not shipped.');
+  requireSite(ctx, tr.destSiteId);
+  const source = ctx.db.inventory.key.find(invKey(tr.sourceSiteId, tr.ndc));
+  if (!source) throw new SenderError('Source product is missing.');
+  const key = invKey(tr.destSiteId, tr.ndc);
+  const dest = ctx.db.inventory.key.find(key);
+  if (dest && dest.unit.trim().toLowerCase() !== source.unit.trim().toLowerCase())
+    throw new SenderError('Destination unit changed; reconcile it before receipt.');
+  if (dest) ctx.db.inventory.key.update({ ...dest, onHand: dest.onHand + tr.quantity,
+    revision: dest.revision + 1, updatedAt: ctx.timestamp });
+  else ctx.db.inventory.insert({ key, siteId: tr.destSiteId, ndc: tr.ndc, label: source.label,
+    unit: source.unit, onHand: tr.quantity, reserved: 0, baselineDaily: 0, safetyStock: 0,
+    shortageKey: source.shortageKey, revision: 1, updatedAt: ctx.timestamp });
+  stockLog(ctx, key, 'transfer_receive', tr.quantity, `Transfer #${tr.id}`);
+  ctx.db.transfer.id.update({ ...tr, status: 'received', updatedAt: ctx.timestamp });
+  log(ctx, 'transfer.receive', `#${tr.id}`);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Evacuation
-// ─────────────────────────────────────────────────────────────────────────────
-
-export const openEvacSlot = spacetimedb.reducer(
-  {
-    mode: t.string(),
-    callsign: t.string(),
-    seats: t.u32(),
-    departInMin: t.f64(),
-    destination: t.string(),
-    capability: t.string(),
-  },
-  (ctx, a) => {
-    const s = state(ctx);
-    if (a.mode !== 'air' && a.mode !== 'ground') throw new SenderError("mode must be 'air' or 'ground'");
-    if (a.seats === 0 || a.seats > 20) throw new SenderError('seats must be 1–20');
-    ctx.db.evacSlot.insert({
-      id: 0,
-      mode: a.mode,
-      callsign: a.callsign,
-      seats: a.seats,
-      seatsFilled: 0,
-      openedMin: s.minute,
-      departMin: s.minute + Math.max(1, a.departInMin),
-      destination: a.destination,
-      capability: a.capability,
-      status: 'open',
-    });
-    raiseAlert(
-      ctx,
-      'info',
-      a.callsign,
-      `${a.mode === 'air' ? 'Air' : 'Ground'} slot open: ${a.seats} seats → ${a.destination}, departs in ${Math.round(a.departInMin)} min`
-    );
-    audit(ctx, 'evac.open', `${a.callsign}: ${a.seats} seats → ${a.destination}`);
+export const cancelTransfer = spacetimedb.reducer({ transferId: t.u32() }, (ctx, a) => {
+  const tr = ctx.db.transfer.id.find(a.transferId);
+  if (!tr || !['requested', 'reserved'].includes(tr.status)) throw new SenderError('Only unshipped transfers can be cancelled.');
+  const m = requireRole(ctx, 'admin', 'manager');
+  if (m.role !== 'admin' && m.siteId !== tr.sourceSiteId && m.siteId !== tr.destSiteId) throw new SenderError('This transfer belongs to another site.');
+  if (tr.status === 'reserved') {
+    const source = ctx.db.inventory.key.find(invKey(tr.sourceSiteId, tr.ndc));
+    if (!source || source.reserved < tr.quantity) throw new SenderError('Reservation is inconsistent.');
+    ctx.db.inventory.key.update({ ...source, reserved: source.reserved - tr.quantity,
+      revision: source.revision + 1, updatedAt: ctx.timestamp });
   }
-);
-
-export const cancelEvacSlot = spacetimedb.reducer({ slotId: t.u32() }, (ctx, { slotId }) => {
-  const slot = ctx.db.evacSlot.id.find(slotId);
-  if (!slot) throw new SenderError(`No slot #${slotId}`);
-  ctx.db.evacSlot.id.update({ ...slot, status: 'cancelled' });
-  for (const r of [...ctx.db.evacRanking.slotId.filter(slotId)]) ctx.db.evacRanking.delete(r);
-  audit(ctx, 'evac.cancel', slot.callsign);
+  ctx.db.transfer.id.update({ ...tr, status: 'cancelled', updatedAt: ctx.timestamp });
+  log(ctx, 'transfer.cancel', `#${tr.id}`);
 });
 
-/**
- * The human decision. `accepted = true` boards the patient; `accepted = false`
- * is an override and must carry a reason. Both are permanently logged.
- */
-export const recordDecision = spacetimedb.reducer(
-  {
-    slotId: t.u32(),
-    patientId: t.u32(),
-    aiRank: t.u32(),
-    accepted: t.bool(),
-    overrideReason: t.string(),
-  },
-  (ctx, a) => {
-    const s = state(ctx);
-    const slot = ctx.db.evacSlot.id.find(a.slotId);
-    if (!slot || slot.status !== 'open') throw new SenderError('That evacuation slot is not open');
-    const p = ctx.db.patient.id.find(a.patientId);
-    if (!p) throw new SenderError(`No patient #${a.patientId}`);
-    if (!a.accepted && !a.overrideReason.trim()) throw new SenderError('An override needs a one-tap reason');
+type FdaRow = { key: string; packageNdc: string; genericName: string; companyName: string;
+  presentation: string; dosageForm: string; status: string; details: string; updateDate: string; rxcui: string };
 
-    if (a.accepted) {
-      if (p.status === 'evacuated' || p.status === 'deceased') throw new SenderError(`${p.tag} is no longer on site`);
-      if (slot.seatsFilled >= slot.seats) throw new SenderError(`${slot.callsign} is full`);
-      releasePatientResources(ctx, p.id);
-      if (p.bedId !== 0) releaseBed(ctx, p.bedId);
-      ctx.db.patient.id.update({ ...p, bedId: 0, status: 'evacuated', evacSlotId: slot.id });
-      ctx.db.evacSlot.id.update({ ...slot, seatsFilled: slot.seatsFilled + 1 });
-      backfillBeds(ctx);
-      startQueued(ctx, s.minute);
-    }
+export const beginFdaSync = spacetimedb.reducer({ runId: t.string() }, (ctx, a) => {
+  requireWorker(ctx);
+  if (!a.runId.trim()) throw new SenderError('Run ID is required.');
+  const old = ctx.db.syncState.id.find(SYNC_ID);
+  if (!old) throw new SenderError('Set up the network first.');
+  ctx.db.syncState.id.update({ ...old, runId: a.runId, status: 'running', recordCount: 0 });
+  log(ctx, 'fda.sync.start', a.runId);
+});
 
-    // Remove the patient from this slot's ranking either way; the sidecar re-ranks.
-    for (const r of [...ctx.db.evacRanking.slotId.filter(slot.id)]) {
-      if (r.patientId === p.id) ctx.db.evacRanking.delete(r);
-    }
-
-    ctx.db.decision.insert({
-      id: 0,
-      slotId: slot.id,
-      patientId: p.id,
-      aiRank: a.aiRank,
-      accepted: a.accepted,
-      overrideReason: a.overrideReason,
-      minute: s.minute,
-      actor: actorOf(ctx),
-      at: ctx.timestamp,
-    });
-    audit(
-      ctx,
-      a.accepted ? 'evac.accept' : 'evac.override',
-      a.accepted
-        ? `${p.tag} (AI #${a.aiRank}) → ${slot.callsign}`
-        : `${p.tag} (AI #${a.aiRank}) skipped for ${slot.callsign} — ${a.overrideReason}`
-    );
+export const importFdaBatch = spacetimedb.reducer({ runId: t.string(), rowsJson: t.string() }, (ctx, a) => {
+  requireWorker(ctx);
+  const sync = ctx.db.syncState.id.find(SYNC_ID);
+  if (!sync || sync.status !== 'running' || sync.runId !== a.runId) throw new SenderError('No matching FDA import run.');
+  let rows: FdaRow[];
+  try { rows = JSON.parse(a.rowsJson) as FdaRow[]; }
+  catch { throw new SenderError('FDA batch must be JSON.'); }
+  if (!Array.isArray(rows) || rows.length > 100) throw new SenderError('FDA batch must contain at most 100 rows.');
+  for (const r of rows) {
+    if (!r.key || !r.genericName || !r.status) throw new SenderError('FDA row is missing required fields.');
+    const old = ctx.db.shortage.key.find(r.key);
+    const row = { key: r.key, packageNdc: r.packageNdc ?? '', genericName: r.genericName,
+      companyName: r.companyName ?? '', presentation: r.presentation ?? '', dosageForm: r.dosageForm ?? '',
+      status: r.status, details: r.details ?? '', updateDate: r.updateDate ?? '', rxcui: r.rxcui ?? '',
+      runId: a.runId, active: true, observedAt: ctx.timestamp };
+    if (old) ctx.db.shortage.key.update(row);
+    else ctx.db.shortage.insert(row);
   }
-);
+  ctx.db.syncState.id.update({ ...sync, recordCount: sync.recordCount + rows.length });
+});
 
-export const setWeights = spacetimedb.reducer(
-  { deterioration: t.f64(), resourceRelief: t.f64(), destinationMatch: t.f64() },
-  (ctx, w) => {
-    const s = state(ctx);
-    for (const v of [w.deterioration, w.resourceRelief, w.destinationMatch]) {
-      if (!(v >= 0 && v <= 1)) throw new SenderError('weights must be 0–1');
-    }
-    ctx.db.simState.id.update({
-      ...s,
-      wDeterioration: w.deterioration,
-      wResourceRelief: w.resourceRelief,
-      wDestinationMatch: w.destinationMatch,
-    });
+export const finishFdaSync = spacetimedb.reducer({ runId: t.string(), feedDate: t.string() }, (ctx, a) => {
+  requireWorker(ctx);
+  const sync = ctx.db.syncState.id.find(SYNC_ID);
+  if (!sync || sync.status !== 'running' || sync.runId !== a.runId) throw new SenderError('No matching FDA import run.');
+  for (const row of ctx.db.shortage.iter()) {
+    if (row.active && row.runId !== a.runId) ctx.db.shortage.key.update({ ...row, active: false });
   }
-);
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ML sidecar write-back
-// ─────────────────────────────────────────────────────────────────────────────
-
-const LEVEL_RANK: Record<string, number> = { ok: 0, amber: 1, red: 2 };
+  ctx.db.syncState.id.update({ ...sync, status: 'complete', feedDate: a.feedDate, completedAt: ctx.timestamp });
+  log(ctx, 'fda.sync.complete', `${sync.recordCount} records; feed ${a.feedDate}`);
+});
 
 export const writeForecast = spacetimedb.reducer(
-  {
-    resourceType: t.string(),
-    available: t.f64(),
-    capacity: t.f64(),
-    ttzMedian: t.f64(),
-    ttzLow: t.f64(),
-    ttzHigh: t.f64(),
-    burnPerHour: t.f64(),
-    curve: t.string(),
-  },
-  (ctx, f) => {
-    const s = state(ctx);
-    const r = getResource(ctx, f.resourceType);
-    // Thresholds from the design doc: amber under 90 min, red under 30 min.
-    const level = f.ttzMedian < 0 ? 'ok' : f.ttzMedian < 30 ? 'red' : f.ttzMedian < 90 ? 'amber' : 'ok';
-    const prev = ctx.db.forecast.resourceType.find(f.resourceType);
-    const row = { ...f, computedMin: s.minute, level };
-    if (prev) ctx.db.forecast.resourceType.update(row);
+  { inventoryKey: t.string(), inventoryRevision: t.u32(), ratePerDay: t.f64(),
+    daysP10: t.f64(), daysMedian: t.f64(), daysP90: t.f64(), risk: t.string(), explanation: t.string() },
+  (ctx, a) => {
+    requireWorker(ctx);
+    const item = ctx.db.inventory.key.find(a.inventoryKey);
+    if (!item || item.revision !== a.inventoryRevision) throw new SenderError('Forecast input is stale.');
+    if (!['unknown', 'stable', 'watch', 'critical'].includes(a.risk)) throw new SenderError('Unknown forecast risk.');
+    for (const x of [a.ratePerDay, a.daysP10, a.daysMedian, a.daysP90]) nonnegative(x, 'Forecast value');
+    const row = { key: a.inventoryKey, inventoryRevision: a.inventoryRevision, computedAt: ctx.timestamp,
+      ratePerDay: a.ratePerDay, daysP10: a.daysP10, daysMedian: a.daysMedian, daysP90: a.daysP90,
+      risk: a.risk, explanation: a.explanation };
+    if (ctx.db.forecast.key.find(a.inventoryKey)) ctx.db.forecast.key.update(row);
     else ctx.db.forecast.insert(row);
-
-    const before = prev?.level ?? 'ok';
-    if (LEVEL_RANK[level] > LEVEL_RANK[before]) {
-      const range =
-        f.ttzHigh < 0
-          ? `range ${Math.round(f.ttzLow)} min to beyond 4 h`
-          : `range ${Math.round(f.ttzLow)}–${Math.round(f.ttzHigh)}`;
-      raiseAlert(
-        ctx,
-        level as 'amber' | 'red',
-        r.label,
-        `${r.label}: ~${Math.round(f.ttzMedian)} min to zero at current rate (${range})`
-      );
-    } else if (level === 'ok' && before !== 'ok') {
-      raiseAlert(ctx, 'info', r.label, `${r.label}: forecast back above 90 min`);
-    }
   }
 );
 
-export const writeInflow = spacetimedb.reducer(
-  {
-    ratePerHour: t.f64(),
-    halfHour: t.f64(),
-    halfHourLow: t.f64(),
-    halfHourHigh: t.f64(),
-    oneHour: t.f64(),
-    oneHourLow: t.f64(),
-    oneHourHigh: t.f64(),
-    ninetyMin: t.f64(),
-    ninetyMinLow: t.f64(),
-    ninetyMinHigh: t.f64(),
-  },
-  (ctx, f) => {
-    const s = state(ctx);
-    const row = { id: 1, computedMin: s.minute, ...f };
-    if (ctx.db.inflowForecast.id.find(1)) ctx.db.inflowForecast.id.update(row);
-    else ctx.db.inflowForecast.insert(row);
-    ctx.db.simState.id.update({ ...s, mlMinute: s.minute, mlHeartbeat: ctx.timestamp });
+export const proposeTransfer = spacetimedb.reducer(
+  { key: t.string(), sourceSiteId: t.u32(), destSiteId: t.u32(), packageNdc: t.string(),
+    quantity: t.f64(), reason: t.string() },
+  (ctx, a) => {
+    requireWorker(ctx);
+    if (a.sourceSiteId === a.destSiteId) throw new SenderError('Choose different sites.');
+    positive(a.quantity, 'Quantity');
+    const code = ndc(a.packageNdc);
+    const source = ctx.db.inventory.key.find(invKey(a.sourceSiteId, code));
+    const dest = ctx.db.inventory.key.find(invKey(a.destSiteId, code));
+    if (!source || !dest || !ctx.db.site.id.find(a.destSiteId)) throw new SenderError('Both sites must stock the product.');
+    if (source.onHand - source.reserved - source.safetyStock < a.quantity) throw new SenderError('Proposed quantity exceeds source surplus.');
+    if (ctx.db.proposal.key.find(a.key)) return;
+    ctx.db.proposal.insert({ key: a.key, sourceSiteId: a.sourceSiteId, destSiteId: a.destSiteId,
+      ndc: code, quantity: a.quantity, reason: a.reason, status: 'pending', createdAt: ctx.timestamp });
+    log(ctx, 'agent.propose', `${a.key}: ${a.quantity} ${source.unit}`);
   }
 );
 
-/** Replace the ranking for one slot. `rankings` is a JSON array from the sidecar. */
-export const writeRanking = spacetimedb.reducer(
-  { slotId: t.u32(), rankings: t.string() },
-  (ctx, { slotId, rankings }) => {
-    const s = state(ctx);
-    const slot = ctx.db.evacSlot.id.find(slotId);
-    if (!slot || slot.status !== 'open') return;
-    let rows: Array<{
-      patientId: number;
-      rank: number;
-      score: number;
-      tier: number;
-      precedence: string;
-      reason: string;
-      factors: unknown;
-    }>;
-    try {
-      rows = JSON.parse(rankings);
-    } catch {
-      throw new SenderError('rankings must be JSON');
-    }
-    if (!Array.isArray(rows)) throw new SenderError('rankings must be a JSON array');
+export const acceptProposal = spacetimedb.reducer({ key: t.string() }, (ctx, a) => {
+  const p = ctx.db.proposal.key.find(a.key);
+  if (!p || p.status !== 'pending') throw new SenderError('Proposal is not pending.');
+  requireSite(ctx, p.destSiteId);
+  requestTransfer(ctx, p.sourceSiteId, p.destSiteId, p.ndc, p.quantity, `Agent proposal: ${p.reason}`);
+  ctx.db.proposal.key.update({ ...p, status: 'accepted' });
+  log(ctx, 'agent.accept', a.key);
+});
 
-    // Defence in depth: re-check the hard tier rule here, so a buggy model can
-    // never place a lower-precedence patient above a higher one.
-    for (let i = 1; i < rows.length; i++) {
-      if (rows[i].tier < rows[i - 1].tier) {
-        throw new SenderError('Ranking violates MEDEVAC precedence tiers');
-      }
-    }
-    for (const r of [...ctx.db.evacRanking.slotId.filter(slotId)]) ctx.db.evacRanking.delete(r);
-    for (const r of rows.slice(0, 10)) {
-      const p = ctx.db.patient.id.find(r.patientId);
-      if (!p || p.status === 'evacuated' || p.status === 'deceased') continue;
-      ctx.db.evacRanking.insert({
-        id: 0,
-        slotId,
-        patientId: r.patientId,
-        rank: r.rank,
-        score: r.score,
-        tier: r.tier,
-        precedence: r.precedence,
-        reason: r.reason,
-        factors: JSON.stringify(r.factors ?? []),
-        computedMin: s.minute,
-      });
-    }
-  }
-);
-
-/** Precedence-window breach alerts, raised by the sidecar once per patient. */
-export const flagPrecedenceBreach = spacetimedb.reducer({ patientId: t.u32() }, (ctx, { patientId }) => {
-  const p = ctx.db.patient.id.find(patientId);
-  if (!p) return;
-  raiseAlert(ctx, 'red', p.tag, `${p.tag} (${p.evacPrecedence}) has passed its evacuation window`);
+export const dismissProposal = spacetimedb.reducer({ key: t.string() }, (ctx, a) => {
+  const p = ctx.db.proposal.key.find(a.key);
+  if (!p || p.status !== 'pending') throw new SenderError('Proposal is not pending.');
+  requireSite(ctx, p.destSiteId);
+  ctx.db.proposal.key.update({ ...p, status: 'dismissed' });
+  log(ctx, 'agent.dismiss', a.key);
 });

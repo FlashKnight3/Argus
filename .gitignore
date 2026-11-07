@@ -18,6 +18,7 @@ server/target/
 # ── SpacetimeDB local state ──────────────────────────────
 # `spacetime start --data-dir .spacetime` keeps the demo's database here.
 .spacetime/
+.argus-supply/
 spacetime-data/
 *.stdb
 

@@ -16,7 +16,7 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "paths": { "@protocols": ["../server/src/protocols/index.ts"] }
+    "paths": {}
   },
-  "include": ["src", "vite.config.ts", "../server/src/protocols"]
+  "include": ["src/main.tsx", "src/supply", "src/supply_bindings", "vite.config.ts"]
 }

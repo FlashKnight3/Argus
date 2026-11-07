@@ -2,7 +2,7 @@
   "name": "argus",
   "private": true,
   "version": "0.1.0",
-  "description": "Argus — every patient seen, every resource watched. Offline mass-casualty command dashboard on SpacetimeDB.",
+  "description": "Argus Supply Network: FDA shortage signals and multi-site inventory coordination on SpacetimeDB.",
   "type": "module",
   "workspaces": [
     "server",
@@ -11,11 +11,14 @@
   "scripts": {
     "dev": "npm --workspace web run dev",
     "build": "npm --workspace web run build",
-    "test": "npm --workspace server run test && npm --workspace web run test",
+    "test": "python3 -m unittest discover -s worker/tests -v && npm --workspace web run test",
     "typecheck": "npm --workspace server run typecheck && npm --workspace web run typecheck",
     "publish:local": "npm --workspace server run publish:local",
     "generate": "npm --workspace server run generate",
-    "demo": "bash scripts/start-demo.sh"
+    "demo": "bash scripts/start-demo.sh",
+    "worker": "python3 worker/argus_supply.py",
+    "worker:once": "python3 worker/argus_supply.py --once",
+    "worker:identity": "python3 worker/argus_supply.py --identity"
   },
   "engines": {
     "node": ">=22"
