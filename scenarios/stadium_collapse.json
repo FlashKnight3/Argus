@@ -1,0 +1,3410 @@
+{
+  "name": "stadium_collapse",
+  "title": "Stadium collapse, Houston",
+  "lengthMin": 120,
+  "protocol": "SALT",
+  "seed": 37,
+  "illustrative": true,
+  "notice": "Synthetic scenario. All values are illustrative placeholders, not clinical evidence.",
+  "resources": {
+    "beds": 20,
+    "bloodUnits": 24,
+    "o2Cylinders": 30,
+    "vents": 3,
+    "orTables": 2
+  },
+  "casualties": [
+    {
+      "tag": "P001",
+      "arrivalMin": 3.3,
+      "age": 30,
+      "injuryType": "fracture",
+      "mechanism": "Fall \u2014 crowd crush on stairs",
+      "narrative": "closed fracture right wrist",
+      "vitals": {
+        "hr": 95,
+        "sbp": 123,
+        "rr": 21,
+        "spo2": 97,
+        "gcs": 15
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [],
+      "trajectory": [
+        {
+          "offsetMin": 14.6,
+          "vitals": {
+            "hr": 95,
+            "sbp": 123,
+            "rr": 21,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 28.9,
+          "vitals": {
+            "hr": 95,
+            "sbp": 123,
+            "rr": 21,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 41.3,
+          "vitals": {
+            "hr": 95,
+            "sbp": 123,
+            "rr": 21,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 55.2,
+          "vitals": {
+            "hr": 95,
+            "sbp": 123,
+            "rr": 21,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 70.6,
+          "vitals": {
+            "hr": 95,
+            "sbp": 123,
+            "rr": 21,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 84.4,
+          "vitals": {
+            "hr": 95,
+            "sbp": 123,
+            "rr": 21,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 98.7,
+          "vitals": {
+            "hr": 95,
+            "sbp": 123,
+            "rr": 21,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 112.6,
+          "vitals": {
+            "hr": 95,
+            "sbp": 123,
+            "rr": 21,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 124.7,
+          "vitals": {
+            "hr": 95,
+            "sbp": 123,
+            "rr": 21,
+            "spo2": 97,
+            "gcs": 15
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P002",
+      "arrivalMin": 4.4,
+      "age": 53,
+      "injuryType": "minor_laceration",
+      "mechanism": "Blunt \u2014 crowd surge",
+      "narrative": "abrasions and bruising, ambulatory",
+      "vitals": {
+        "hr": 95,
+        "sbp": 119,
+        "rr": 20,
+        "spo2": 97,
+        "gcs": 15
+      },
+      "assessment": {
+        "walks": true,
+        "minorInjuriesOnly": true
+      },
+      "needs": [],
+      "trajectory": [
+        {
+          "offsetMin": 14.2,
+          "vitals": {
+            "hr": 95,
+            "sbp": 119,
+            "rr": 20,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 28.4,
+          "vitals": {
+            "hr": 95,
+            "sbp": 119,
+            "rr": 20,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 43.7,
+          "vitals": {
+            "hr": 95,
+            "sbp": 119,
+            "rr": 20,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 56.8,
+          "vitals": {
+            "hr": 95,
+            "sbp": 119,
+            "rr": 20,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 71.5,
+          "vitals": {
+            "hr": 95,
+            "sbp": 119,
+            "rr": 20,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 88.0,
+          "vitals": {
+            "hr": 95,
+            "sbp": 119,
+            "rr": 20,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 100.9,
+          "vitals": {
+            "hr": 95,
+            "sbp": 119,
+            "rr": 20,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 116.5,
+          "vitals": {
+            "hr": 95,
+            "sbp": 119,
+            "rr": 20,
+            "spo2": 97,
+            "gcs": 15
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P003",
+      "arrivalMin": 5.1,
+      "age": 59,
+      "injuryType": "fracture",
+      "mechanism": "Fall \u2014 crowd crush on stairs",
+      "narrative": "suspected closed femur fracture, splinted",
+      "vitals": {
+        "hr": 93,
+        "sbp": 113,
+        "rr": 18,
+        "spo2": 97,
+        "gcs": 15
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [],
+      "trajectory": [
+        {
+          "offsetMin": 14.4,
+          "vitals": {
+            "hr": 93,
+            "sbp": 113,
+            "rr": 18,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 28.8,
+          "vitals": {
+            "hr": 93,
+            "sbp": 113,
+            "rr": 18,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 42.4,
+          "vitals": {
+            "hr": 93,
+            "sbp": 113,
+            "rr": 18,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 59.2,
+          "vitals": {
+            "hr": 93,
+            "sbp": 113,
+            "rr": 18,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 75.3,
+          "vitals": {
+            "hr": 93,
+            "sbp": 113,
+            "rr": 18,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 92.9,
+          "vitals": {
+            "hr": 93,
+            "sbp": 113,
+            "rr": 18,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 105.0,
+          "vitals": {
+            "hr": 93,
+            "sbp": 113,
+            "rr": 18,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 117.5,
+          "vitals": {
+            "hr": 93,
+            "sbp": 113,
+            "rr": 18,
+            "spo2": 97,
+            "gcs": 15
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P004",
+      "arrivalMin": 5.7,
+      "age": 38,
+      "injuryType": "blast_extremity",
+      "mechanism": "Blast \u2014 structural collapse",
+      "narrative": "mangled right forearm, tourniquet on",
+      "vitals": {
+        "hr": 131,
+        "sbp": 90,
+        "rr": 26,
+        "spo2": 94,
+        "gcs": 13
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "blood_unit",
+          "amount": 2.5,
+          "offsetMin": 6.9,
+          "durationMin": 79.0
+        },
+        {
+          "resource": "or_table",
+          "amount": 1,
+          "offsetMin": 25.2,
+          "durationMin": 86.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 17.5,
+          "vitals": {
+            "hr": 133,
+            "sbp": 87,
+            "rr": 24,
+            "spo2": 93,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 32.7,
+          "vitals": {
+            "hr": 135,
+            "sbp": 86,
+            "rr": 23,
+            "spo2": 92,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 48.7,
+          "vitals": {
+            "hr": 138,
+            "sbp": 83,
+            "rr": 23,
+            "spo2": 90,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 63.5,
+          "vitals": {
+            "hr": 139,
+            "sbp": 82,
+            "rr": 22,
+            "spo2": 90,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 79.0,
+          "vitals": {
+            "hr": 142,
+            "sbp": 81,
+            "rr": 24,
+            "spo2": 92,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 95.4,
+          "vitals": {
+            "hr": 144,
+            "sbp": 80,
+            "rr": 24,
+            "spo2": 90,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 112.5,
+          "vitals": {
+            "hr": 147,
+            "sbp": 78,
+            "rr": 24,
+            "spo2": 89,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 125.0,
+          "vitals": {
+            "hr": 149,
+            "sbp": 77,
+            "rr": 25,
+            "spo2": 88,
+            "gcs": 13
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P005",
+      "arrivalMin": 5.9,
+      "age": 56,
+      "injuryType": "fracture",
+      "mechanism": "Fall \u2014 crowd crush on stairs",
+      "narrative": "closed fracture right wrist",
+      "vitals": {
+        "hr": 82,
+        "sbp": 135,
+        "rr": 20,
+        "spo2": 97,
+        "gcs": 15
+      },
+      "assessment": {
+        "walks": true,
+        "minorInjuriesOnly": false
+      },
+      "needs": [],
+      "trajectory": [
+        {
+          "offsetMin": 17.7,
+          "vitals": {
+            "hr": 82,
+            "sbp": 135,
+            "rr": 20,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 34.0,
+          "vitals": {
+            "hr": 82,
+            "sbp": 135,
+            "rr": 20,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 51.5,
+          "vitals": {
+            "hr": 82,
+            "sbp": 135,
+            "rr": 20,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 66.1,
+          "vitals": {
+            "hr": 82,
+            "sbp": 135,
+            "rr": 20,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 81.6,
+          "vitals": {
+            "hr": 82,
+            "sbp": 135,
+            "rr": 20,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 98.4,
+          "vitals": {
+            "hr": 82,
+            "sbp": 135,
+            "rr": 20,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 116.1,
+          "vitals": {
+            "hr": 82,
+            "sbp": 135,
+            "rr": 20,
+            "spo2": 97,
+            "gcs": 15
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P006",
+      "arrivalMin": 9.1,
+      "age": 74,
+      "injuryType": "fracture",
+      "mechanism": "Fall \u2014 crowd crush on stairs",
+      "narrative": "suspected closed femur fracture, splinted",
+      "vitals": {
+        "hr": 107,
+        "sbp": 119,
+        "rr": 18,
+        "spo2": 96,
+        "gcs": 15
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [],
+      "trajectory": [
+        {
+          "offsetMin": 15.0,
+          "vitals": {
+            "hr": 107,
+            "sbp": 119,
+            "rr": 18,
+            "spo2": 96,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 32.2,
+          "vitals": {
+            "hr": 107,
+            "sbp": 119,
+            "rr": 18,
+            "spo2": 96,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 45.4,
+          "vitals": {
+            "hr": 107,
+            "sbp": 119,
+            "rr": 18,
+            "spo2": 96,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 57.9,
+          "vitals": {
+            "hr": 107,
+            "sbp": 119,
+            "rr": 18,
+            "spo2": 96,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 73.8,
+          "vitals": {
+            "hr": 107,
+            "sbp": 119,
+            "rr": 18,
+            "spo2": 96,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 88.5,
+          "vitals": {
+            "hr": 107,
+            "sbp": 119,
+            "rr": 18,
+            "spo2": 96,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 101.2,
+          "vitals": {
+            "hr": 107,
+            "sbp": 119,
+            "rr": 18,
+            "spo2": 96,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 113.6,
+          "vitals": {
+            "hr": 107,
+            "sbp": 119,
+            "rr": 18,
+            "spo2": 96,
+            "gcs": 15
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P007",
+      "arrivalMin": 12.7,
+      "age": 66,
+      "injuryType": "minor_laceration",
+      "mechanism": "Blunt \u2014 crowd surge",
+      "narrative": "superficial forearm laceration",
+      "vitals": {
+        "hr": 90,
+        "sbp": 140,
+        "rr": 18,
+        "spo2": 98,
+        "gcs": 15
+      },
+      "assessment": {
+        "walks": true,
+        "minorInjuriesOnly": true
+      },
+      "needs": [],
+      "trajectory": [
+        {
+          "offsetMin": 12.8,
+          "vitals": {
+            "hr": 90,
+            "sbp": 140,
+            "rr": 18,
+            "spo2": 98,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 27.9,
+          "vitals": {
+            "hr": 90,
+            "sbp": 140,
+            "rr": 18,
+            "spo2": 98,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 41.8,
+          "vitals": {
+            "hr": 90,
+            "sbp": 140,
+            "rr": 18,
+            "spo2": 98,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 56.7,
+          "vitals": {
+            "hr": 90,
+            "sbp": 140,
+            "rr": 18,
+            "spo2": 98,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 69.9,
+          "vitals": {
+            "hr": 90,
+            "sbp": 140,
+            "rr": 18,
+            "spo2": 98,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 83.0,
+          "vitals": {
+            "hr": 90,
+            "sbp": 140,
+            "rr": 18,
+            "spo2": 98,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 98.0,
+          "vitals": {
+            "hr": 90,
+            "sbp": 140,
+            "rr": 18,
+            "spo2": 98,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 115.9,
+          "vitals": {
+            "hr": 90,
+            "sbp": 140,
+            "rr": 18,
+            "spo2": 98,
+            "gcs": 15
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P008",
+      "arrivalMin": 13.8,
+      "age": 70,
+      "injuryType": "minor_laceration",
+      "mechanism": "Blunt \u2014 crowd surge",
+      "narrative": "abrasions and bruising, ambulatory",
+      "vitals": {
+        "hr": 86,
+        "sbp": 129,
+        "rr": 17,
+        "spo2": 98,
+        "gcs": 15
+      },
+      "assessment": {
+        "walks": true,
+        "minorInjuriesOnly": true
+      },
+      "needs": [],
+      "trajectory": [
+        {
+          "offsetMin": 14.7,
+          "vitals": {
+            "hr": 86,
+            "sbp": 129,
+            "rr": 17,
+            "spo2": 98,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 28.4,
+          "vitals": {
+            "hr": 86,
+            "sbp": 129,
+            "rr": 17,
+            "spo2": 98,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 46.4,
+          "vitals": {
+            "hr": 86,
+            "sbp": 129,
+            "rr": 17,
+            "spo2": 98,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 64.0,
+          "vitals": {
+            "hr": 86,
+            "sbp": 129,
+            "rr": 17,
+            "spo2": 98,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 81.4,
+          "vitals": {
+            "hr": 86,
+            "sbp": 129,
+            "rr": 17,
+            "spo2": 98,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 96.8,
+          "vitals": {
+            "hr": 86,
+            "sbp": 129,
+            "rr": 17,
+            "spo2": 98,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 109.4,
+          "vitals": {
+            "hr": 86,
+            "sbp": 129,
+            "rr": 17,
+            "spo2": 98,
+            "gcs": 15
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P009",
+      "arrivalMin": 15.2,
+      "age": 76,
+      "injuryType": "minor_laceration",
+      "mechanism": "Blunt \u2014 crowd surge",
+      "narrative": "superficial forearm laceration",
+      "vitals": {
+        "hr": 89,
+        "sbp": 125,
+        "rr": 18,
+        "spo2": 99,
+        "gcs": 15
+      },
+      "assessment": {
+        "walks": true,
+        "minorInjuriesOnly": true
+      },
+      "needs": [],
+      "trajectory": [
+        {
+          "offsetMin": 14.0,
+          "vitals": {
+            "hr": 89,
+            "sbp": 125,
+            "rr": 18,
+            "spo2": 99,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 29.3,
+          "vitals": {
+            "hr": 89,
+            "sbp": 125,
+            "rr": 18,
+            "spo2": 99,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 41.9,
+          "vitals": {
+            "hr": 89,
+            "sbp": 125,
+            "rr": 18,
+            "spo2": 99,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 57.0,
+          "vitals": {
+            "hr": 89,
+            "sbp": 125,
+            "rr": 18,
+            "spo2": 99,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 71.6,
+          "vitals": {
+            "hr": 89,
+            "sbp": 125,
+            "rr": 18,
+            "spo2": 99,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 88.8,
+          "vitals": {
+            "hr": 89,
+            "sbp": 125,
+            "rr": 18,
+            "spo2": 99,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 104.9,
+          "vitals": {
+            "hr": 89,
+            "sbp": 125,
+            "rr": 18,
+            "spo2": 99,
+            "gcs": 15
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P010",
+      "arrivalMin": 17.7,
+      "age": 36,
+      "injuryType": "blast_extremity",
+      "mechanism": "Blast \u2014 structural collapse",
+      "narrative": "partial amputation left lower leg, tourniquet applied",
+      "vitals": {
+        "hr": 112,
+        "sbp": 98,
+        "rr": 26,
+        "spo2": 94,
+        "gcs": 13
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "blood_unit",
+          "amount": 3.0,
+          "offsetMin": 6.6,
+          "durationMin": 68.0
+        },
+        {
+          "resource": "or_table",
+          "amount": 1,
+          "offsetMin": 35.9,
+          "durationMin": 81.0
+        },
+        {
+          "resource": "o2",
+          "amount": 1.0,
+          "offsetMin": 0.6,
+          "durationMin": 85.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 14.9,
+          "vitals": {
+            "hr": 114,
+            "sbp": 98,
+            "rr": 28,
+            "spo2": 92,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 31.2,
+          "vitals": {
+            "hr": 117,
+            "sbp": 95,
+            "rr": 29,
+            "spo2": 91,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 43.4,
+          "vitals": {
+            "hr": 148,
+            "sbp": 61,
+            "rr": 38,
+            "spo2": 84,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 59.1,
+          "vitals": {
+            "hr": 152,
+            "sbp": 59,
+            "rr": 37,
+            "spo2": 85,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 72.5,
+          "vitals": {
+            "hr": 154,
+            "sbp": 55,
+            "rr": 37,
+            "spo2": 84,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 86.5,
+          "vitals": {
+            "hr": 158,
+            "sbp": 52,
+            "rr": 39,
+            "spo2": 85,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 101.6,
+          "vitals": {
+            "hr": 161,
+            "sbp": 48,
+            "rr": 38,
+            "spo2": 84,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 114.9,
+          "vitals": {
+            "hr": 162,
+            "sbp": 46,
+            "rr": 38,
+            "spo2": 85,
+            "gcs": 10
+          }
+        }
+      ],
+      "surprise": true
+    },
+    {
+      "tag": "P011",
+      "arrivalMin": 33.3,
+      "age": 21,
+      "injuryType": "head_injury",
+      "mechanism": "Blunt \u2014 struck by debris",
+      "narrative": "struck on head by falling light rig, unequal pupils",
+      "vitals": {
+        "hr": 76,
+        "sbp": 161,
+        "rr": 18,
+        "spo2": 90,
+        "gcs": 13
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "o2",
+          "amount": 2.0,
+          "offsetMin": 2.8,
+          "durationMin": 142.0
+        },
+        {
+          "resource": "vent",
+          "amount": 1,
+          "offsetMin": 25.2,
+          "durationMin": 0.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 16.1,
+          "vitals": {
+            "hr": 76,
+            "sbp": 161,
+            "rr": 18,
+            "spo2": 89,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 30.7,
+          "vitals": {
+            "hr": 76,
+            "sbp": 161,
+            "rr": 18,
+            "spo2": 89,
+            "gcs": 12
+          }
+        },
+        {
+          "offsetMin": 45.0,
+          "vitals": {
+            "hr": 76,
+            "sbp": 161,
+            "rr": 17,
+            "spo2": 90,
+            "gcs": 12
+          }
+        },
+        {
+          "offsetMin": 62.7,
+          "vitals": {
+            "hr": 76,
+            "sbp": 161,
+            "rr": 14,
+            "spo2": 89,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 79.0,
+          "vitals": {
+            "hr": 76,
+            "sbp": 161,
+            "rr": 14,
+            "spo2": 88,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 93.1,
+          "vitals": {
+            "hr": 76,
+            "sbp": 161,
+            "rr": 14,
+            "spo2": 87,
+            "gcs": 10
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P012",
+      "arrivalMin": 34.4,
+      "age": 71,
+      "injuryType": "burns",
+      "mechanism": "Thermal \u2014 electrical fire",
+      "narrative": "flash burns to face and hands, singed nasal hair",
+      "vitals": {
+        "hr": 123,
+        "sbp": 104,
+        "rr": 28,
+        "spo2": 95,
+        "gcs": 14
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "blood_unit",
+          "amount": 3,
+          "offsetMin": 25,
+          "durationMin": 45
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 15.1,
+          "vitals": {
+            "hr": 124,
+            "sbp": 102,
+            "rr": 28,
+            "spo2": 94,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 31.5,
+          "vitals": {
+            "hr": 126,
+            "sbp": 99,
+            "rr": 28,
+            "spo2": 92,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 47.5,
+          "vitals": {
+            "hr": 157,
+            "sbp": 64,
+            "rr": 37,
+            "spo2": 84,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 63.2,
+          "vitals": {
+            "hr": 161,
+            "sbp": 61,
+            "rr": 37,
+            "spo2": 85,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 81.1,
+          "vitals": {
+            "hr": 162,
+            "sbp": 58,
+            "rr": 37,
+            "spo2": 84,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 98.4,
+          "vitals": {
+            "hr": 166,
+            "sbp": 56,
+            "rr": 37,
+            "spo2": 85,
+            "gcs": 11
+          }
+        }
+      ],
+      "surprise": true
+    },
+    {
+      "tag": "P013",
+      "arrivalMin": 34.9,
+      "age": 17,
+      "injuryType": "head_injury",
+      "mechanism": "Blunt \u2014 struck by debris",
+      "narrative": "found unresponsive under seating, scalp laceration",
+      "vitals": {
+        "hr": 63,
+        "sbp": 142,
+        "rr": 14,
+        "spo2": 91,
+        "gcs": 7
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "o2",
+          "amount": 1.5,
+          "offsetMin": 3.6,
+          "durationMin": 100.0
+        },
+        {
+          "resource": "vent",
+          "amount": 1,
+          "offsetMin": 25.0,
+          "durationMin": 0.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 17.9,
+          "vitals": {
+            "hr": 63,
+            "sbp": 142,
+            "rr": 13,
+            "spo2": 90,
+            "gcs": 7
+          }
+        },
+        {
+          "offsetMin": 30.6,
+          "vitals": {
+            "hr": 63,
+            "sbp": 142,
+            "rr": 11,
+            "spo2": 88,
+            "gcs": 7
+          }
+        },
+        {
+          "offsetMin": 48.5,
+          "vitals": {
+            "hr": 63,
+            "sbp": 142,
+            "rr": 10,
+            "spo2": 87,
+            "gcs": 6
+          }
+        },
+        {
+          "offsetMin": 66.2,
+          "vitals": {
+            "hr": 63,
+            "sbp": 142,
+            "rr": 9,
+            "spo2": 87,
+            "gcs": 5
+          }
+        },
+        {
+          "offsetMin": 82.0,
+          "vitals": {
+            "hr": 63,
+            "sbp": 142,
+            "rr": 8,
+            "spo2": 86,
+            "gcs": 4
+          }
+        },
+        {
+          "offsetMin": 97.5,
+          "vitals": {
+            "hr": 63,
+            "sbp": 142,
+            "rr": 7,
+            "spo2": 84,
+            "gcs": 4
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P014",
+      "arrivalMin": 35.7,
+      "age": 17,
+      "injuryType": "blast_extremity",
+      "mechanism": "Blast \u2014 structural collapse",
+      "narrative": "partial amputation left lower leg, tourniquet applied",
+      "vitals": {
+        "hr": 113,
+        "sbp": 106,
+        "rr": 25,
+        "spo2": 95,
+        "gcs": 13
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "blood_unit",
+          "amount": 3.0,
+          "offsetMin": 3.9,
+          "durationMin": 64.0
+        },
+        {
+          "resource": "or_table",
+          "amount": 1,
+          "offsetMin": 40.2,
+          "durationMin": 86.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 17.6,
+          "vitals": {
+            "hr": 116,
+            "sbp": 106,
+            "rr": 26,
+            "spo2": 97,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 31.4,
+          "vitals": {
+            "hr": 118,
+            "sbp": 104,
+            "rr": 27,
+            "spo2": 96,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 44.7,
+          "vitals": {
+            "hr": 118,
+            "sbp": 101,
+            "rr": 27,
+            "spo2": 95,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 61.1,
+          "vitals": {
+            "hr": 120,
+            "sbp": 98,
+            "rr": 28,
+            "spo2": 95,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 79.0,
+          "vitals": {
+            "hr": 121,
+            "sbp": 96,
+            "rr": 29,
+            "spo2": 94,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 94.7,
+          "vitals": {
+            "hr": 122,
+            "sbp": 94,
+            "rr": 29,
+            "spo2": 91,
+            "gcs": 13
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P015",
+      "arrivalMin": 36.0,
+      "age": 72,
+      "injuryType": "blast_extremity",
+      "mechanism": "Blast \u2014 structural collapse",
+      "narrative": "open tib/fib fracture with heavy bleeding",
+      "vitals": {
+        "hr": 124,
+        "sbp": 108,
+        "rr": 20,
+        "spo2": 95,
+        "gcs": 15
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [],
+      "trajectory": [
+        {
+          "offsetMin": 17.2,
+          "vitals": {
+            "hr": 127,
+            "sbp": 105,
+            "rr": 23,
+            "spo2": 95,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 33.6,
+          "vitals": {
+            "hr": 127,
+            "sbp": 102,
+            "rr": 22,
+            "spo2": 94,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 51.2,
+          "vitals": {
+            "hr": 131,
+            "sbp": 100,
+            "rr": 22,
+            "spo2": 94,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 67.7,
+          "vitals": {
+            "hr": 133,
+            "sbp": 98,
+            "rr": 21,
+            "spo2": 92,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 83.1,
+          "vitals": {
+            "hr": 137,
+            "sbp": 96,
+            "rr": 23,
+            "spo2": 89,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 98.6,
+          "vitals": {
+            "hr": 140,
+            "sbp": 94,
+            "rr": 23,
+            "spo2": 89,
+            "gcs": 15
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P016",
+      "arrivalMin": 36.4,
+      "age": 7,
+      "injuryType": "blast_extremity",
+      "mechanism": "Blast \u2014 structural collapse",
+      "narrative": "mangled right forearm, tourniquet on",
+      "vitals": {
+        "hr": 133,
+        "sbp": 76,
+        "rr": 37,
+        "spo2": 94,
+        "gcs": 15
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "blood_unit",
+          "amount": 3.5,
+          "offsetMin": 7.3,
+          "durationMin": 74.0
+        },
+        {
+          "resource": "or_table",
+          "amount": 1,
+          "offsetMin": 34.6,
+          "durationMin": 86.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 16.3,
+          "vitals": {
+            "hr": 136,
+            "sbp": 75,
+            "rr": 38,
+            "spo2": 93,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 32.0,
+          "vitals": {
+            "hr": 136,
+            "sbp": 74,
+            "rr": 39,
+            "spo2": 91,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 47.8,
+          "vitals": {
+            "hr": 139,
+            "sbp": 72,
+            "rr": 40,
+            "spo2": 92,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 62.1,
+          "vitals": {
+            "hr": 139,
+            "sbp": 70,
+            "rr": 42,
+            "spo2": 91,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 77.3,
+          "vitals": {
+            "hr": 141,
+            "sbp": 65,
+            "rr": 41,
+            "spo2": 89,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 92.0,
+          "vitals": {
+            "hr": 145,
+            "sbp": 62,
+            "rr": 40,
+            "spo2": 87,
+            "gcs": 15
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P017",
+      "arrivalMin": 38.7,
+      "age": 27,
+      "injuryType": "blast_extremity",
+      "mechanism": "Blast \u2014 structural collapse",
+      "narrative": "mangled right forearm, tourniquet on",
+      "vitals": {
+        "hr": 115,
+        "sbp": 88,
+        "rr": 21,
+        "spo2": 95,
+        "gcs": 14
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "blood_unit",
+          "amount": 2.5,
+          "offsetMin": 7.3,
+          "durationMin": 70.0
+        },
+        {
+          "resource": "o2",
+          "amount": 1.0,
+          "offsetMin": 3.1,
+          "durationMin": 118.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 16.2,
+          "vitals": {
+            "hr": 115,
+            "sbp": 86,
+            "rr": 21,
+            "spo2": 95,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 30.5,
+          "vitals": {
+            "hr": 118,
+            "sbp": 84,
+            "rr": 21,
+            "spo2": 96,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 46.0,
+          "vitals": {
+            "hr": 121,
+            "sbp": 82,
+            "rr": 21,
+            "spo2": 93,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 61.5,
+          "vitals": {
+            "hr": 123,
+            "sbp": 80,
+            "rr": 22,
+            "spo2": 92,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 76.5,
+          "vitals": {
+            "hr": 126,
+            "sbp": 78,
+            "rr": 23,
+            "spo2": 92,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 92.0,
+          "vitals": {
+            "hr": 128,
+            "sbp": 75,
+            "rr": 23,
+            "spo2": 89,
+            "gcs": 14
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P018",
+      "arrivalMin": 38.9,
+      "age": 75,
+      "injuryType": "inhalation",
+      "mechanism": "Inhalation \u2014 smoke and dust",
+      "narrative": "coughing, hoarse voice after dust and smoke exposure",
+      "vitals": {
+        "hr": 126,
+        "sbp": 111,
+        "rr": 31,
+        "spo2": 92,
+        "gcs": 15
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "o2",
+          "amount": 0.5,
+          "offsetMin": 2.5,
+          "durationMin": 93.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 14.9,
+          "vitals": {
+            "hr": 126,
+            "sbp": 111,
+            "rr": 32,
+            "spo2": 92,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 32.0,
+          "vitals": {
+            "hr": 126,
+            "sbp": 111,
+            "rr": 34,
+            "spo2": 93,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 44.1,
+          "vitals": {
+            "hr": 126,
+            "sbp": 111,
+            "rr": 34,
+            "spo2": 93,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 62.0,
+          "vitals": {
+            "hr": 126,
+            "sbp": 111,
+            "rr": 33,
+            "spo2": 93,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 77.4,
+          "vitals": {
+            "hr": 126,
+            "sbp": 111,
+            "rr": 35,
+            "spo2": 92,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 94.1,
+          "vitals": {
+            "hr": 126,
+            "sbp": 111,
+            "rr": 36,
+            "spo2": 91,
+            "gcs": 15
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P019",
+      "arrivalMin": 41.3,
+      "age": 5,
+      "injuryType": "fracture",
+      "mechanism": "Fall \u2014 crowd crush on stairs",
+      "narrative": "closed fracture right wrist",
+      "vitals": {
+        "hr": 130,
+        "sbp": 113,
+        "rr": 27,
+        "spo2": 97,
+        "gcs": 15
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [],
+      "trajectory": [
+        {
+          "offsetMin": 15.3,
+          "vitals": {
+            "hr": 130,
+            "sbp": 113,
+            "rr": 27,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 31.7,
+          "vitals": {
+            "hr": 130,
+            "sbp": 113,
+            "rr": 27,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 45.2,
+          "vitals": {
+            "hr": 130,
+            "sbp": 113,
+            "rr": 27,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 57.8,
+          "vitals": {
+            "hr": 130,
+            "sbp": 113,
+            "rr": 27,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 74.6,
+          "vitals": {
+            "hr": 130,
+            "sbp": 113,
+            "rr": 27,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 86.8,
+          "vitals": {
+            "hr": 130,
+            "sbp": 113,
+            "rr": 27,
+            "spo2": 97,
+            "gcs": 15
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P020",
+      "arrivalMin": 41.7,
+      "age": 4,
+      "injuryType": "minor_laceration",
+      "mechanism": "Blunt \u2014 crowd surge",
+      "narrative": "abrasions and bruising, ambulatory",
+      "vitals": {
+        "hr": 115,
+        "sbp": 112,
+        "rr": 21,
+        "spo2": 98,
+        "gcs": 15
+      },
+      "assessment": {
+        "walks": true,
+        "minorInjuriesOnly": true
+      },
+      "needs": [],
+      "trajectory": [
+        {
+          "offsetMin": 14.7,
+          "vitals": {
+            "hr": 115,
+            "sbp": 112,
+            "rr": 21,
+            "spo2": 98,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 29.8,
+          "vitals": {
+            "hr": 115,
+            "sbp": 112,
+            "rr": 21,
+            "spo2": 98,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 46.7,
+          "vitals": {
+            "hr": 115,
+            "sbp": 112,
+            "rr": 21,
+            "spo2": 98,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 64.4,
+          "vitals": {
+            "hr": 115,
+            "sbp": 112,
+            "rr": 21,
+            "spo2": 98,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 81.2,
+          "vitals": {
+            "hr": 115,
+            "sbp": 112,
+            "rr": 21,
+            "spo2": 98,
+            "gcs": 15
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P021",
+      "arrivalMin": 46.1,
+      "age": 62,
+      "injuryType": "penetrating_torso",
+      "mechanism": "Penetrating \u2014 falling steel / debris",
+      "narrative": "impaled by rebar to the left flank",
+      "vitals": {
+        "hr": 129,
+        "sbp": 70,
+        "rr": 26,
+        "spo2": 89,
+        "gcs": 12
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false,
+        "hemorrhageControlled": false
+      },
+      "needs": [
+        {
+          "resource": "blood_unit",
+          "amount": 5.0,
+          "offsetMin": 4.1,
+          "durationMin": 73.0
+        },
+        {
+          "resource": "or_table",
+          "amount": 1,
+          "offsetMin": 21.7,
+          "durationMin": 84.0
+        },
+        {
+          "resource": "o2",
+          "amount": 1.5,
+          "offsetMin": 2.7,
+          "durationMin": 82.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 16.8,
+          "vitals": {
+            "hr": 133,
+            "sbp": 64,
+            "rr": 25,
+            "spo2": 89,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 33.8,
+          "vitals": {
+            "hr": 135,
+            "sbp": 61,
+            "rr": 27,
+            "spo2": 88,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 47.5,
+          "vitals": {
+            "hr": 138,
+            "sbp": 57,
+            "rr": 27,
+            "spo2": 88,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 64.4,
+          "vitals": {
+            "hr": 142,
+            "sbp": 52,
+            "rr": 28,
+            "spo2": 86,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 76.4,
+          "vitals": {
+            "hr": 146,
+            "sbp": 50,
+            "rr": 29,
+            "spo2": 86,
+            "gcs": 9
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P022",
+      "arrivalMin": 46.2,
+      "age": 5,
+      "injuryType": "blast_extremity",
+      "mechanism": "Blast \u2014 structural collapse",
+      "narrative": "open tib/fib fracture with heavy bleeding",
+      "vitals": {
+        "hr": 122,
+        "sbp": 85,
+        "rr": 27,
+        "spo2": 93,
+        "gcs": 13
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "blood_unit",
+          "amount": 3.5,
+          "offsetMin": 8.0,
+          "durationMin": 72.0
+        },
+        {
+          "resource": "or_table",
+          "amount": 1,
+          "offsetMin": 35.2,
+          "durationMin": 75.0
+        },
+        {
+          "resource": "o2",
+          "amount": 0.5,
+          "offsetMin": 8.7,
+          "durationMin": 63.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 12.5,
+          "vitals": {
+            "hr": 125,
+            "sbp": 83,
+            "rr": 27,
+            "spo2": 92,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 29.0,
+          "vitals": {
+            "hr": 128,
+            "sbp": 80,
+            "rr": 28,
+            "spo2": 93,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 45.3,
+          "vitals": {
+            "hr": 132,
+            "sbp": 75,
+            "rr": 30,
+            "spo2": 93,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 58.3,
+          "vitals": {
+            "hr": 134,
+            "sbp": 73,
+            "rr": 30,
+            "spo2": 91,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 75.8,
+          "vitals": {
+            "hr": 136,
+            "sbp": 67,
+            "rr": 31,
+            "spo2": 89,
+            "gcs": 13
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P023",
+      "arrivalMin": 46.4,
+      "age": 64,
+      "injuryType": "crush",
+      "mechanism": "Crush \u2014 trapped under concrete",
+      "narrative": "trapped 40 minutes under a concrete slab, both legs",
+      "vitals": {
+        "hr": 103,
+        "sbp": 93,
+        "rr": 23,
+        "spo2": 95,
+        "gcs": 14
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "o2",
+          "amount": 0.5,
+          "offsetMin": 6.7,
+          "durationMin": 114.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 14.5,
+          "vitals": {
+            "hr": 106,
+            "sbp": 90,
+            "rr": 24,
+            "spo2": 95,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 27.3,
+          "vitals": {
+            "hr": 107,
+            "sbp": 89,
+            "rr": 25,
+            "spo2": 95,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 42.1,
+          "vitals": {
+            "hr": 109,
+            "sbp": 86,
+            "rr": 25,
+            "spo2": 95,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 55.2,
+          "vitals": {
+            "hr": 112,
+            "sbp": 83,
+            "rr": 26,
+            "spo2": 95,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 70.1,
+          "vitals": {
+            "hr": 113,
+            "sbp": 82,
+            "rr": 26,
+            "spo2": 95,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 85.0,
+          "vitals": {
+            "hr": 115,
+            "sbp": 82,
+            "rr": 26,
+            "spo2": 95,
+            "gcs": 14
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P024",
+      "arrivalMin": 46.5,
+      "age": 42,
+      "injuryType": "blast_extremity",
+      "mechanism": "Blast \u2014 structural collapse",
+      "narrative": "open tib/fib fracture with heavy bleeding",
+      "vitals": {
+        "hr": 130,
+        "sbp": 106,
+        "rr": 20,
+        "spo2": 94,
+        "gcs": 14
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false,
+        "hemorrhageControlled": false
+      },
+      "needs": [
+        {
+          "resource": "or_table",
+          "amount": 1,
+          "offsetMin": 20.0,
+          "durationMin": 69.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 16.2,
+          "vitals": {
+            "hr": 134,
+            "sbp": 103,
+            "rr": 22,
+            "spo2": 93,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 28.8,
+          "vitals": {
+            "hr": 137,
+            "sbp": 100,
+            "rr": 24,
+            "spo2": 90,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 41.5,
+          "vitals": {
+            "hr": 139,
+            "sbp": 97,
+            "rr": 25,
+            "spo2": 91,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 54.7,
+          "vitals": {
+            "hr": 139,
+            "sbp": 96,
+            "rr": 26,
+            "spo2": 91,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 70.5,
+          "vitals": {
+            "hr": 143,
+            "sbp": 92,
+            "rr": 28,
+            "spo2": 93,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 88.2,
+          "vitals": {
+            "hr": 146,
+            "sbp": 91,
+            "rr": 28,
+            "spo2": 91,
+            "gcs": 14
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P025",
+      "arrivalMin": 47.0,
+      "age": 66,
+      "injuryType": "burns",
+      "mechanism": "Thermal \u2014 electrical fire",
+      "narrative": "partial-thickness burns ~20% TBSA arms and torso",
+      "vitals": {
+        "hr": 122,
+        "sbp": 106,
+        "rr": 21,
+        "spo2": 94,
+        "gcs": 14
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "o2",
+          "amount": 1.5,
+          "offsetMin": 4.7,
+          "durationMin": 132.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 17.1,
+          "vitals": {
+            "hr": 123,
+            "sbp": 105,
+            "rr": 21,
+            "spo2": 93,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 30.7,
+          "vitals": {
+            "hr": 125,
+            "sbp": 104,
+            "rr": 21,
+            "spo2": 92,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 46.4,
+          "vitals": {
+            "hr": 126,
+            "sbp": 103,
+            "rr": 21,
+            "spo2": 93,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 60.5,
+          "vitals": {
+            "hr": 128,
+            "sbp": 103,
+            "rr": 21,
+            "spo2": 92,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 76.1,
+          "vitals": {
+            "hr": 130,
+            "sbp": 101,
+            "rr": 21,
+            "spo2": 93,
+            "gcs": 14
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P026",
+      "arrivalMin": 47.1,
+      "age": 72,
+      "injuryType": "fracture",
+      "mechanism": "Fall \u2014 crowd crush on stairs",
+      "narrative": "closed fracture right wrist",
+      "vitals": {
+        "hr": 100,
+        "sbp": 132,
+        "rr": 20,
+        "spo2": 99,
+        "gcs": 15
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [],
+      "trajectory": [
+        {
+          "offsetMin": 17.7,
+          "vitals": {
+            "hr": 100,
+            "sbp": 132,
+            "rr": 20,
+            "spo2": 99,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 30.1,
+          "vitals": {
+            "hr": 100,
+            "sbp": 132,
+            "rr": 20,
+            "spo2": 99,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 47.9,
+          "vitals": {
+            "hr": 100,
+            "sbp": 132,
+            "rr": 20,
+            "spo2": 99,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 63.7,
+          "vitals": {
+            "hr": 100,
+            "sbp": 132,
+            "rr": 20,
+            "spo2": 99,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 76.6,
+          "vitals": {
+            "hr": 100,
+            "sbp": 132,
+            "rr": 20,
+            "spo2": 99,
+            "gcs": 15
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P027",
+      "arrivalMin": 48.6,
+      "age": 24,
+      "injuryType": "crush",
+      "mechanism": "Crush \u2014 trapped under concrete",
+      "narrative": "trapped 40 minutes under a concrete slab, both legs",
+      "vitals": {
+        "hr": 108,
+        "sbp": 108,
+        "rr": 19,
+        "spo2": 95,
+        "gcs": 13
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "blood_unit",
+          "amount": 1.5,
+          "offsetMin": 27.4,
+          "durationMin": 89.0
+        },
+        {
+          "resource": "o2",
+          "amount": 0.5,
+          "offsetMin": 1.3,
+          "durationMin": 101.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 15.8,
+          "vitals": {
+            "hr": 112,
+            "sbp": 106,
+            "rr": 20,
+            "spo2": 95,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 32.1,
+          "vitals": {
+            "hr": 113,
+            "sbp": 104,
+            "rr": 18,
+            "spo2": 95,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 50.1,
+          "vitals": {
+            "hr": 115,
+            "sbp": 101,
+            "rr": 20,
+            "spo2": 95,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 64.8,
+          "vitals": {
+            "hr": 116,
+            "sbp": 98,
+            "rr": 21,
+            "spo2": 95,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 78.8,
+          "vitals": {
+            "hr": 116,
+            "sbp": 97,
+            "rr": 19,
+            "spo2": 95,
+            "gcs": 13
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P028",
+      "arrivalMin": 49.5,
+      "age": 54,
+      "injuryType": "crush",
+      "mechanism": "Crush \u2014 trapped under concrete",
+      "narrative": "trapped 40 minutes under a concrete slab, both legs",
+      "vitals": {
+        "hr": 110,
+        "sbp": 106,
+        "rr": 28,
+        "spo2": 97,
+        "gcs": 14
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "blood_unit",
+          "amount": 2.0,
+          "offsetMin": 17.4,
+          "durationMin": 89.0
+        },
+        {
+          "resource": "o2",
+          "amount": 1.0,
+          "offsetMin": 1.7,
+          "durationMin": 104.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 12.1,
+          "vitals": {
+            "hr": 111,
+            "sbp": 104,
+            "rr": 29,
+            "spo2": 97,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 27.4,
+          "vitals": {
+            "hr": 113,
+            "sbp": 102,
+            "rr": 30,
+            "spo2": 97,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 41.0,
+          "vitals": {
+            "hr": 116,
+            "sbp": 99,
+            "rr": 29,
+            "spo2": 97,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 57.8,
+          "vitals": {
+            "hr": 115,
+            "sbp": 97,
+            "rr": 29,
+            "spo2": 97,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 70.8,
+          "vitals": {
+            "hr": 117,
+            "sbp": 96,
+            "rr": 28,
+            "spo2": 97,
+            "gcs": 14
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P029",
+      "arrivalMin": 50.3,
+      "age": 57,
+      "injuryType": "minor_laceration",
+      "mechanism": "Blunt \u2014 crowd surge",
+      "narrative": "abrasions and bruising, ambulatory",
+      "vitals": {
+        "hr": 86,
+        "sbp": 136,
+        "rr": 19,
+        "spo2": 96,
+        "gcs": 15
+      },
+      "assessment": {
+        "walks": true,
+        "minorInjuriesOnly": true
+      },
+      "needs": [],
+      "trajectory": [
+        {
+          "offsetMin": 16.0,
+          "vitals": {
+            "hr": 86,
+            "sbp": 136,
+            "rr": 19,
+            "spo2": 96,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 33.7,
+          "vitals": {
+            "hr": 86,
+            "sbp": 136,
+            "rr": 19,
+            "spo2": 96,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 48.3,
+          "vitals": {
+            "hr": 86,
+            "sbp": 136,
+            "rr": 19,
+            "spo2": 96,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 65.0,
+          "vitals": {
+            "hr": 86,
+            "sbp": 136,
+            "rr": 19,
+            "spo2": 96,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 82.5,
+          "vitals": {
+            "hr": 86,
+            "sbp": 136,
+            "rr": 19,
+            "spo2": 96,
+            "gcs": 15
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P030",
+      "arrivalMin": 50.8,
+      "age": 37,
+      "injuryType": "minor_laceration",
+      "mechanism": "Blunt \u2014 crowd surge",
+      "narrative": "superficial forearm laceration",
+      "vitals": {
+        "hr": 82,
+        "sbp": 129,
+        "rr": 16,
+        "spo2": 99,
+        "gcs": 15
+      },
+      "assessment": {
+        "walks": true,
+        "minorInjuriesOnly": true
+      },
+      "needs": [],
+      "trajectory": [
+        {
+          "offsetMin": 14.2,
+          "vitals": {
+            "hr": 82,
+            "sbp": 129,
+            "rr": 16,
+            "spo2": 99,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 30.4,
+          "vitals": {
+            "hr": 82,
+            "sbp": 129,
+            "rr": 16,
+            "spo2": 99,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 45.7,
+          "vitals": {
+            "hr": 82,
+            "sbp": 129,
+            "rr": 16,
+            "spo2": 99,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 58.5,
+          "vitals": {
+            "hr": 82,
+            "sbp": 129,
+            "rr": 16,
+            "spo2": 99,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 72.6,
+          "vitals": {
+            "hr": 82,
+            "sbp": 129,
+            "rr": 16,
+            "spo2": 99,
+            "gcs": 15
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P031",
+      "arrivalMin": 52.2,
+      "age": 26,
+      "injuryType": "blast_extremity",
+      "mechanism": "Blast \u2014 structural collapse",
+      "narrative": "mangled right forearm, tourniquet on",
+      "vitals": {
+        "hr": 129,
+        "sbp": 105,
+        "rr": 24,
+        "spo2": 95,
+        "gcs": 13
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "blood_unit",
+          "amount": 2.5,
+          "offsetMin": 7.8,
+          "durationMin": 78.0
+        },
+        {
+          "resource": "or_table",
+          "amount": 1,
+          "offsetMin": 41.5,
+          "durationMin": 71.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 17.5,
+          "vitals": {
+            "hr": 131,
+            "sbp": 101,
+            "rr": 24,
+            "spo2": 93,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 30.7,
+          "vitals": {
+            "hr": 132,
+            "sbp": 99,
+            "rr": 25,
+            "spo2": 93,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 44.9,
+          "vitals": {
+            "hr": 134,
+            "sbp": 99,
+            "rr": 26,
+            "spo2": 91,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 56.9,
+          "vitals": {
+            "hr": 138,
+            "sbp": 97,
+            "rr": 27,
+            "spo2": 88,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 71.2,
+          "vitals": {
+            "hr": 142,
+            "sbp": 93,
+            "rr": 28,
+            "spo2": 86,
+            "gcs": 13
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P032",
+      "arrivalMin": 79.7,
+      "age": 77,
+      "injuryType": "crush",
+      "mechanism": "Crush \u2014 trapped under concrete",
+      "narrative": "pelvis pinned by fallen beam, extricated",
+      "vitals": {
+        "hr": 117,
+        "sbp": 112,
+        "rr": 19,
+        "spo2": 96,
+        "gcs": 13
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "o2",
+          "amount": 0.5,
+          "offsetMin": 7.8,
+          "durationMin": 90.0
+        },
+        {
+          "resource": "blood_unit",
+          "amount": 3,
+          "offsetMin": 25,
+          "durationMin": 45
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 14.6,
+          "vitals": {
+            "hr": 117,
+            "sbp": 110,
+            "rr": 19,
+            "spo2": 96,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 32.6,
+          "vitals": {
+            "hr": 149,
+            "sbp": 78,
+            "rr": 28,
+            "spo2": 89,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 49.9,
+          "vitals": {
+            "hr": 152,
+            "sbp": 76,
+            "rr": 30,
+            "spo2": 89,
+            "gcs": 10
+          }
+        }
+      ],
+      "surprise": true
+    },
+    {
+      "tag": "P033",
+      "arrivalMin": 80.6,
+      "age": 64,
+      "injuryType": "inhalation",
+      "mechanism": "Inhalation \u2014 smoke and dust",
+      "narrative": "coughing, hoarse voice after dust and smoke exposure",
+      "vitals": {
+        "hr": 109,
+        "sbp": 130,
+        "rr": 27,
+        "spo2": 91,
+        "gcs": 14
+      },
+      "assessment": {
+        "walks": true,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "o2",
+          "amount": 1.0,
+          "offsetMin": 3.3,
+          "durationMin": 61.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 16.5,
+          "vitals": {
+            "hr": 109,
+            "sbp": 130,
+            "rr": 28,
+            "spo2": 89,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 29.2,
+          "vitals": {
+            "hr": 109,
+            "sbp": 130,
+            "rr": 28,
+            "spo2": 88,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 47.0,
+          "vitals": {
+            "hr": 109,
+            "sbp": 130,
+            "rr": 29,
+            "spo2": 88,
+            "gcs": 14
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P034",
+      "arrivalMin": 81.6,
+      "age": 19,
+      "injuryType": "inhalation",
+      "mechanism": "Inhalation \u2014 smoke and dust",
+      "narrative": "coughing, hoarse voice after dust and smoke exposure",
+      "vitals": {
+        "hr": 108,
+        "sbp": 113,
+        "rr": 22,
+        "spo2": 91,
+        "gcs": 14
+      },
+      "assessment": {
+        "walks": true,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "o2",
+          "amount": 0.5,
+          "offsetMin": 4.0,
+          "durationMin": 77.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 16.8,
+          "vitals": {
+            "hr": 108,
+            "sbp": 113,
+            "rr": 24,
+            "spo2": 90,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 32.3,
+          "vitals": {
+            "hr": 108,
+            "sbp": 113,
+            "rr": 26,
+            "spo2": 90,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 49.9,
+          "vitals": {
+            "hr": 108,
+            "sbp": 113,
+            "rr": 26,
+            "spo2": 89,
+            "gcs": 14
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P035",
+      "arrivalMin": 83.1,
+      "age": 21,
+      "injuryType": "minor_laceration",
+      "mechanism": "Blunt \u2014 crowd surge",
+      "narrative": "superficial forearm laceration",
+      "vitals": {
+        "hr": 95,
+        "sbp": 136,
+        "rr": 20,
+        "spo2": 98,
+        "gcs": 15
+      },
+      "assessment": {
+        "walks": true,
+        "minorInjuriesOnly": true
+      },
+      "needs": [],
+      "trajectory": [
+        {
+          "offsetMin": 14.8,
+          "vitals": {
+            "hr": 95,
+            "sbp": 136,
+            "rr": 20,
+            "spo2": 98,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 30.4,
+          "vitals": {
+            "hr": 95,
+            "sbp": 136,
+            "rr": 20,
+            "spo2": 98,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 48.0,
+          "vitals": {
+            "hr": 95,
+            "sbp": 136,
+            "rr": 20,
+            "spo2": 98,
+            "gcs": 15
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P036",
+      "arrivalMin": 86.3,
+      "age": 42,
+      "injuryType": "inhalation",
+      "mechanism": "Inhalation \u2014 smoke and dust",
+      "narrative": "coughing, hoarse voice after dust and smoke exposure",
+      "vitals": {
+        "hr": 105,
+        "sbp": 137,
+        "rr": 23,
+        "spo2": 87,
+        "gcs": 14
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "o2",
+          "amount": 1.5,
+          "offsetMin": 1.5,
+          "durationMin": 75.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 17.9,
+          "vitals": {
+            "hr": 105,
+            "sbp": 137,
+            "rr": 26,
+            "spo2": 87,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 31.4,
+          "vitals": {
+            "hr": 105,
+            "sbp": 137,
+            "rr": 28,
+            "spo2": 87,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 49.3,
+          "vitals": {
+            "hr": 105,
+            "sbp": 137,
+            "rr": 26,
+            "spo2": 87,
+            "gcs": 14
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P037",
+      "arrivalMin": 88.7,
+      "age": 48,
+      "injuryType": "fracture",
+      "mechanism": "Fall \u2014 crowd crush on stairs",
+      "narrative": "suspected closed femur fracture, splinted",
+      "vitals": {
+        "hr": 106,
+        "sbp": 140,
+        "rr": 21,
+        "spo2": 97,
+        "gcs": 15
+      },
+      "assessment": {
+        "walks": true,
+        "minorInjuriesOnly": false
+      },
+      "needs": [],
+      "trajectory": [
+        {
+          "offsetMin": 16.3,
+          "vitals": {
+            "hr": 106,
+            "sbp": 140,
+            "rr": 21,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 31.3,
+          "vitals": {
+            "hr": 106,
+            "sbp": 140,
+            "rr": 21,
+            "spo2": 97,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 44.7,
+          "vitals": {
+            "hr": 106,
+            "sbp": 140,
+            "rr": 21,
+            "spo2": 97,
+            "gcs": 15
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P038",
+      "arrivalMin": 88.7,
+      "age": 47,
+      "injuryType": "inhalation",
+      "mechanism": "Inhalation \u2014 smoke and dust",
+      "narrative": "coughing, hoarse voice after dust and smoke exposure",
+      "vitals": {
+        "hr": 105,
+        "sbp": 112,
+        "rr": 29,
+        "spo2": 88,
+        "gcs": 15
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "o2",
+          "amount": 1.5,
+          "offsetMin": 4.9,
+          "durationMin": 68.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 15.7,
+          "vitals": {
+            "hr": 105,
+            "sbp": 112,
+            "rr": 30,
+            "spo2": 87,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 31.1,
+          "vitals": {
+            "hr": 105,
+            "sbp": 112,
+            "rr": 31,
+            "spo2": 87,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 43.6,
+          "vitals": {
+            "hr": 105,
+            "sbp": 112,
+            "rr": 33,
+            "spo2": 87,
+            "gcs": 15
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P039",
+      "arrivalMin": 95.0,
+      "age": 28,
+      "injuryType": "minor_laceration",
+      "mechanism": "Blunt \u2014 crowd surge",
+      "narrative": "abrasions and bruising, ambulatory",
+      "vitals": {
+        "hr": 80,
+        "sbp": 136,
+        "rr": 15,
+        "spo2": 99,
+        "gcs": 15
+      },
+      "assessment": {
+        "walks": true,
+        "minorInjuriesOnly": true
+      },
+      "needs": [],
+      "trajectory": [
+        {
+          "offsetMin": 15.7,
+          "vitals": {
+            "hr": 80,
+            "sbp": 136,
+            "rr": 15,
+            "spo2": 99,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 31.0,
+          "vitals": {
+            "hr": 80,
+            "sbp": 136,
+            "rr": 15,
+            "spo2": 99,
+            "gcs": 15
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P040",
+      "arrivalMin": 99.9,
+      "age": 56,
+      "injuryType": "minor_laceration",
+      "mechanism": "Blunt \u2014 crowd surge",
+      "narrative": "abrasions and bruising, ambulatory",
+      "vitals": {
+        "hr": 85,
+        "sbp": 128,
+        "rr": 19,
+        "spo2": 98,
+        "gcs": 15
+      },
+      "assessment": {
+        "walks": true,
+        "minorInjuriesOnly": true
+      },
+      "needs": [],
+      "trajectory": [
+        {
+          "offsetMin": 15.3,
+          "vitals": {
+            "hr": 85,
+            "sbp": 128,
+            "rr": 19,
+            "spo2": 98,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 29.0,
+          "vitals": {
+            "hr": 85,
+            "sbp": 128,
+            "rr": 19,
+            "spo2": 98,
+            "gcs": 15
+          }
+        }
+      ],
+      "surprise": false
+    }
+  ],
+  "evacSlots": [
+    {
+      "atMin": 36,
+      "mode": "ground",
+      "callsign": "MEDIC 12",
+      "seats": 2,
+      "departInMin": 12,
+      "destination": "Memorial Hermann\u2013TMC",
+      "capability": "trauma_surgery"
+    },
+    {
+      "atMin": 70,
+      "mode": "air",
+      "callsign": "LIFE FLIGHT 2",
+      "seats": 2,
+      "departInMin": 15,
+      "destination": "Ben Taub (Level I)",
+      "capability": "trauma_surgery"
+    },
+    {
+      "atMin": 96,
+      "mode": "ground",
+      "callsign": "MEDIC 31",
+      "seats": 4,
+      "departInMin": 14,
+      "destination": "Houston Methodist",
+      "capability": "general"
+    }
+  ],
+  "resupply": []
+}

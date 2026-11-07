@@ -1,0 +1,28 @@
+[project]
+name = "argus-ml"
+version = "0.1.0"
+description = "Argus scenario simulator and ML sidecar (inflow forecast, Monte Carlo burn-down, tiered evacuation ranking)."
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.26"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.scripts]
+argus-sim = "argus_ml.simulator:main"
+argus-sidecar = "argus_ml.sidecar:main"
+argus-scenario = "argus_ml.scenario:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["argus_ml*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"

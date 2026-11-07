@@ -1,0 +1,55 @@
+# ── Dependencies ─────────────────────────────────────────
+node_modules/
+.pnpm-store/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# ── Build output ─────────────────────────────────────────
+dist/
+build/
+*.tsbuildinfo
+server/target/
+.vite/
+
+# ── SpacetimeDB local state ──────────────────────────────
+# `spacetime start --data-dir .spacetime` keeps the demo's database here.
+.spacetime/
+spacetime-data/
+*.stdb
+
+# ── Tooling caches ───────────────────────────────────────
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage/
+.eslintcache
+
+# ── Logs & runtime ───────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+*.pid
+
+# ── Environment & secrets ────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Local models (never commit weights) ──────────────────
+models/
+*.gguf
+*.bin
+
+# ── Editors & OS ─────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

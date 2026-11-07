@@ -1,0 +1,22 @@
+{
+  "name": "@argus/server",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Argus SpacetimeDB module: tables, reducers and deterministic triage protocols.",
+  "type": "module",
+  "scripts": {
+    "build": "spacetime build",
+    "publish:local": "spacetime publish argus --server local --module-path . --delete-data=on-conflict --yes",
+    "publish:reset": "spacetime publish argus --server local --module-path . --delete-data --yes",
+    "generate": "spacetime generate --lang typescript --out-dir ../web/src/module_bindings --module-path .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "spacetimedb": "2.14.1"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

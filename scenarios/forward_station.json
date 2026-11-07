@@ -1,0 +1,2547 @@
+{
+  "name": "forward_station",
+  "title": "Forward field station \u2014 evacuation delayed by weather",
+  "lengthMin": 240,
+  "protocol": "SALT",
+  "seed": 5,
+  "illustrative": true,
+  "notice": "Synthetic scenario. All values are illustrative placeholders, not clinical evidence.",
+  "resources": {
+    "beds": 12,
+    "bloodUnits": 14,
+    "o2Cylinders": 14,
+    "vents": 2,
+    "orTables": 1
+  },
+  "casualties": [
+    {
+      "tag": "P001",
+      "arrivalMin": 11.8,
+      "age": 65,
+      "injuryType": "head_injury",
+      "mechanism": "Blunt \u2014 struck by debris",
+      "narrative": "struck on head by falling light rig, unequal pupils",
+      "vitals": {
+        "hr": 91,
+        "sbp": 141,
+        "rr": 20,
+        "spo2": 93,
+        "gcs": 8
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "o2",
+          "amount": 2.0,
+          "offsetMin": 3.7,
+          "durationMin": 147.0
+        },
+        {
+          "resource": "vent",
+          "amount": 1,
+          "offsetMin": 23.3,
+          "durationMin": 0.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 17.5,
+          "vitals": {
+            "hr": 91,
+            "sbp": 141,
+            "rr": 19,
+            "spo2": 92,
+            "gcs": 7
+          }
+        },
+        {
+          "offsetMin": 30.5,
+          "vitals": {
+            "hr": 91,
+            "sbp": 141,
+            "rr": 18,
+            "spo2": 91,
+            "gcs": 6
+          }
+        },
+        {
+          "offsetMin": 43.3,
+          "vitals": {
+            "hr": 91,
+            "sbp": 141,
+            "rr": 18,
+            "spo2": 90,
+            "gcs": 6
+          }
+        },
+        {
+          "offsetMin": 56.0,
+          "vitals": {
+            "hr": 91,
+            "sbp": 141,
+            "rr": 16,
+            "spo2": 90,
+            "gcs": 5
+          }
+        },
+        {
+          "offsetMin": 68.0,
+          "vitals": {
+            "hr": 91,
+            "sbp": 141,
+            "rr": 14,
+            "spo2": 90,
+            "gcs": 5
+          }
+        },
+        {
+          "offsetMin": 82.9,
+          "vitals": {
+            "hr": 91,
+            "sbp": 141,
+            "rr": 15,
+            "spo2": 88,
+            "gcs": 4
+          }
+        },
+        {
+          "offsetMin": 99.6,
+          "vitals": {
+            "hr": 91,
+            "sbp": 141,
+            "rr": 13,
+            "spo2": 87,
+            "gcs": 3
+          }
+        },
+        {
+          "offsetMin": 115.8,
+          "vitals": {
+            "hr": 91,
+            "sbp": 141,
+            "rr": 13,
+            "spo2": 87,
+            "gcs": 3
+          }
+        },
+        {
+          "offsetMin": 129.0,
+          "vitals": {
+            "hr": 91,
+            "sbp": 141,
+            "rr": 14,
+            "spo2": 87,
+            "gcs": 3
+          }
+        },
+        {
+          "offsetMin": 146.4,
+          "vitals": {
+            "hr": 91,
+            "sbp": 141,
+            "rr": 13,
+            "spo2": 87,
+            "gcs": 3
+          }
+        },
+        {
+          "offsetMin": 163.1,
+          "vitals": {
+            "hr": 91,
+            "sbp": 141,
+            "rr": 10,
+            "spo2": 88,
+            "gcs": 3
+          }
+        },
+        {
+          "offsetMin": 180.0,
+          "vitals": {
+            "hr": 91,
+            "sbp": 141,
+            "rr": 9,
+            "spo2": 85,
+            "gcs": 3
+          }
+        },
+        {
+          "offsetMin": 195.2,
+          "vitals": {
+            "hr": 91,
+            "sbp": 141,
+            "rr": 8,
+            "spo2": 84,
+            "gcs": 3
+          }
+        },
+        {
+          "offsetMin": 210.4,
+          "vitals": {
+            "hr": 91,
+            "sbp": 141,
+            "rr": 7,
+            "spo2": 85,
+            "gcs": 3
+          }
+        },
+        {
+          "offsetMin": 225.4,
+          "vitals": {
+            "hr": 91,
+            "sbp": 141,
+            "rr": 6,
+            "spo2": 83,
+            "gcs": 3
+          }
+        },
+        {
+          "offsetMin": 240.3,
+          "vitals": {
+            "hr": 91,
+            "sbp": 141,
+            "rr": 6,
+            "spo2": 81,
+            "gcs": 3
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P002",
+      "arrivalMin": 12.3,
+      "age": 27,
+      "injuryType": "blast_extremity",
+      "mechanism": "Blast \u2014 structural collapse",
+      "narrative": "partial amputation left lower leg, tourniquet applied",
+      "vitals": {
+        "hr": 106,
+        "sbp": 97,
+        "rr": 21,
+        "spo2": 94,
+        "gcs": 14
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "blood_unit",
+          "amount": 2.5,
+          "offsetMin": 8.7,
+          "durationMin": 72.0
+        },
+        {
+          "resource": "o2",
+          "amount": 1.0,
+          "offsetMin": 9.6,
+          "durationMin": 101.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 15.3,
+          "vitals": {
+            "hr": 109,
+            "sbp": 94,
+            "rr": 22,
+            "spo2": 93,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 31.7,
+          "vitals": {
+            "hr": 110,
+            "sbp": 91,
+            "rr": 24,
+            "spo2": 92,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 45.9,
+          "vitals": {
+            "hr": 112,
+            "sbp": 90,
+            "rr": 23,
+            "spo2": 93,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 61.5,
+          "vitals": {
+            "hr": 115,
+            "sbp": 88,
+            "rr": 25,
+            "spo2": 93,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 74.1,
+          "vitals": {
+            "hr": 118,
+            "sbp": 85,
+            "rr": 25,
+            "spo2": 92,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 89.1,
+          "vitals": {
+            "hr": 119,
+            "sbp": 84,
+            "rr": 27,
+            "spo2": 92,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 106.8,
+          "vitals": {
+            "hr": 122,
+            "sbp": 83,
+            "rr": 25,
+            "spo2": 90,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 119.2,
+          "vitals": {
+            "hr": 123,
+            "sbp": 81,
+            "rr": 25,
+            "spo2": 90,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 131.3,
+          "vitals": {
+            "hr": 124,
+            "sbp": 79,
+            "rr": 26,
+            "spo2": 90,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 148.1,
+          "vitals": {
+            "hr": 124,
+            "sbp": 77,
+            "rr": 27,
+            "spo2": 90,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 163.0,
+          "vitals": {
+            "hr": 126,
+            "sbp": 74,
+            "rr": 27,
+            "spo2": 89,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 176.1,
+          "vitals": {
+            "hr": 129,
+            "sbp": 73,
+            "rr": 29,
+            "spo2": 90,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 190.7,
+          "vitals": {
+            "hr": 132,
+            "sbp": 70,
+            "rr": 30,
+            "spo2": 90,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 203.1,
+          "vitals": {
+            "hr": 136,
+            "sbp": 68,
+            "rr": 31,
+            "spo2": 89,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 218.5,
+          "vitals": {
+            "hr": 139,
+            "sbp": 65,
+            "rr": 32,
+            "spo2": 88,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 235.2,
+          "vitals": {
+            "hr": 142,
+            "sbp": 62,
+            "rr": 33,
+            "spo2": 87,
+            "gcs": 14
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P003",
+      "arrivalMin": 15.5,
+      "age": 43,
+      "injuryType": "penetrating_torso",
+      "mechanism": "Penetrating \u2014 falling steel / debris",
+      "narrative": "shrapnel wound right chest, decreased breath sounds",
+      "vitals": {
+        "hr": 121,
+        "sbp": 75,
+        "rr": 24,
+        "spo2": 93,
+        "gcs": 12
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false,
+        "hemorrhageControlled": false
+      },
+      "needs": [
+        {
+          "resource": "blood_unit",
+          "amount": 7.5,
+          "offsetMin": 7.0,
+          "durationMin": 86.0
+        },
+        {
+          "resource": "or_table",
+          "amount": 1,
+          "offsetMin": 17.8,
+          "durationMin": 88.0
+        },
+        {
+          "resource": "o2",
+          "amount": 1.0,
+          "offsetMin": 3.4,
+          "durationMin": 72.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 12.4,
+          "vitals": {
+            "hr": 127,
+            "sbp": 69,
+            "rr": 27,
+            "spo2": 94,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 27.9,
+          "vitals": {
+            "hr": 128,
+            "sbp": 65,
+            "rr": 27,
+            "spo2": 92,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 44.3,
+          "vitals": {
+            "hr": 136,
+            "sbp": 60,
+            "rr": 30,
+            "spo2": 91,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 60.2,
+          "vitals": {
+            "hr": 138,
+            "sbp": 56,
+            "rr": 31,
+            "spo2": 89,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 73.7,
+          "vitals": {
+            "hr": 144,
+            "sbp": 49,
+            "rr": 32,
+            "spo2": 90,
+            "gcs": 9
+          }
+        },
+        {
+          "offsetMin": 87.7,
+          "vitals": {
+            "hr": 150,
+            "sbp": 44,
+            "rr": 33,
+            "spo2": 89,
+            "gcs": 9
+          }
+        },
+        {
+          "offsetMin": 104.1,
+          "vitals": {
+            "hr": 151,
+            "sbp": 40,
+            "rr": 34,
+            "spo2": 88,
+            "gcs": 8
+          }
+        },
+        {
+          "offsetMin": 118.0,
+          "vitals": {
+            "hr": 155,
+            "sbp": 40,
+            "rr": 35,
+            "spo2": 86,
+            "gcs": 8
+          }
+        },
+        {
+          "offsetMin": 135.8,
+          "vitals": {
+            "hr": 160,
+            "sbp": 40,
+            "rr": 38,
+            "spo2": 85,
+            "gcs": 7
+          }
+        },
+        {
+          "offsetMin": 152.2,
+          "vitals": {
+            "hr": 165,
+            "sbp": 40,
+            "rr": 41,
+            "spo2": 84,
+            "gcs": 7
+          }
+        },
+        {
+          "offsetMin": 164.9,
+          "vitals": {
+            "hr": 169,
+            "sbp": 40,
+            "rr": 43,
+            "spo2": 84,
+            "gcs": 6
+          }
+        },
+        {
+          "offsetMin": 179.5,
+          "vitals": {
+            "hr": 173,
+            "sbp": 40,
+            "rr": 44,
+            "spo2": 84,
+            "gcs": 6
+          }
+        },
+        {
+          "offsetMin": 195.0,
+          "vitals": {
+            "hr": 179,
+            "sbp": 40,
+            "rr": 45,
+            "spo2": 83,
+            "gcs": 5
+          }
+        },
+        {
+          "offsetMin": 211.9,
+          "vitals": {
+            "hr": 180,
+            "sbp": 40,
+            "rr": 45,
+            "spo2": 84,
+            "gcs": 5
+          }
+        },
+        {
+          "offsetMin": 225.2,
+          "vitals": {
+            "hr": 186,
+            "sbp": 40,
+            "rr": 47,
+            "spo2": 83,
+            "gcs": 4
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P004",
+      "arrivalMin": 16.7,
+      "age": 61,
+      "injuryType": "penetrating_torso",
+      "mechanism": "Penetrating \u2014 falling steel / debris",
+      "narrative": "penetrating abdominal wound from falling steel",
+      "vitals": {
+        "hr": 132,
+        "sbp": 80,
+        "rr": 27,
+        "spo2": 89,
+        "gcs": 12
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false,
+        "hemorrhageControlled": false
+      },
+      "needs": [
+        {
+          "resource": "blood_unit",
+          "amount": 4.5,
+          "offsetMin": 7.9,
+          "durationMin": 92.0
+        },
+        {
+          "resource": "or_table",
+          "amount": 1,
+          "offsetMin": 15.2,
+          "durationMin": 106.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 13.4,
+          "vitals": {
+            "hr": 137,
+            "sbp": 74,
+            "rr": 30,
+            "spo2": 88,
+            "gcs": 12
+          }
+        },
+        {
+          "offsetMin": 28.7,
+          "vitals": {
+            "hr": 143,
+            "sbp": 71,
+            "rr": 33,
+            "spo2": 86,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 43.3,
+          "vitals": {
+            "hr": 148,
+            "sbp": 66,
+            "rr": 34,
+            "spo2": 85,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 58.5,
+          "vitals": {
+            "hr": 150,
+            "sbp": 63,
+            "rr": 36,
+            "spo2": 83,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 70.9,
+          "vitals": {
+            "hr": 155,
+            "sbp": 60,
+            "rr": 37,
+            "spo2": 83,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 84.2,
+          "vitals": {
+            "hr": 159,
+            "sbp": 54,
+            "rr": 38,
+            "spo2": 83,
+            "gcs": 9
+          }
+        },
+        {
+          "offsetMin": 101.0,
+          "vitals": {
+            "hr": 162,
+            "sbp": 50,
+            "rr": 39,
+            "spo2": 83,
+            "gcs": 9
+          }
+        },
+        {
+          "offsetMin": 113.9,
+          "vitals": {
+            "hr": 166,
+            "sbp": 47,
+            "rr": 40,
+            "spo2": 82,
+            "gcs": 9
+          }
+        },
+        {
+          "offsetMin": 127.3,
+          "vitals": {
+            "hr": 171,
+            "sbp": 42,
+            "rr": 44,
+            "spo2": 82,
+            "gcs": 8
+          }
+        },
+        {
+          "offsetMin": 141.5,
+          "vitals": {
+            "hr": 175,
+            "sbp": 40,
+            "rr": 45,
+            "spo2": 81,
+            "gcs": 8
+          }
+        },
+        {
+          "offsetMin": 157.2,
+          "vitals": {
+            "hr": 179,
+            "sbp": 40,
+            "rr": 46,
+            "spo2": 80,
+            "gcs": 7
+          }
+        },
+        {
+          "offsetMin": 171.8,
+          "vitals": {
+            "hr": 181,
+            "sbp": 40,
+            "rr": 49,
+            "spo2": 78,
+            "gcs": 6
+          }
+        },
+        {
+          "offsetMin": 186.0,
+          "vitals": {
+            "hr": 184,
+            "sbp": 40,
+            "rr": 49,
+            "spo2": 76,
+            "gcs": 6
+          }
+        },
+        {
+          "offsetMin": 202.1,
+          "vitals": {
+            "hr": 184,
+            "sbp": 40,
+            "rr": 49,
+            "spo2": 76,
+            "gcs": 5
+          }
+        },
+        {
+          "offsetMin": 217.0,
+          "vitals": {
+            "hr": 189,
+            "sbp": 40,
+            "rr": 50,
+            "spo2": 74,
+            "gcs": 5
+          }
+        },
+        {
+          "offsetMin": 233.6,
+          "vitals": {
+            "hr": 190,
+            "sbp": 40,
+            "rr": 50,
+            "spo2": 74,
+            "gcs": 5
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P005",
+      "arrivalMin": 19.6,
+      "age": 17,
+      "injuryType": "blast_extremity",
+      "mechanism": "Blast \u2014 structural collapse",
+      "narrative": "partial amputation left lower leg, tourniquet applied",
+      "vitals": {
+        "hr": 128,
+        "sbp": 83,
+        "rr": 26,
+        "spo2": 96,
+        "gcs": 14
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false,
+        "hemorrhageControlled": false
+      },
+      "needs": [
+        {
+          "resource": "blood_unit",
+          "amount": 2.0,
+          "offsetMin": 9.3,
+          "durationMin": 82.0
+        },
+        {
+          "resource": "or_table",
+          "amount": 1,
+          "offsetMin": 40.0,
+          "durationMin": 65.0
+        },
+        {
+          "resource": "o2",
+          "amount": 1.0,
+          "offsetMin": 8.6,
+          "durationMin": 92.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 17.5,
+          "vitals": {
+            "hr": 131,
+            "sbp": 79,
+            "rr": 26,
+            "spo2": 95,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 29.6,
+          "vitals": {
+            "hr": 162,
+            "sbp": 45,
+            "rr": 35,
+            "spo2": 86,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 45.2,
+          "vitals": {
+            "hr": 164,
+            "sbp": 41,
+            "rr": 36,
+            "spo2": 85,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 57.9,
+          "vitals": {
+            "hr": 167,
+            "sbp": 40,
+            "rr": 36,
+            "spo2": 85,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 74.5,
+          "vitals": {
+            "hr": 169,
+            "sbp": 40,
+            "rr": 35,
+            "spo2": 85,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 89.3,
+          "vitals": {
+            "hr": 174,
+            "sbp": 40,
+            "rr": 36,
+            "spo2": 84,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 101.7,
+          "vitals": {
+            "hr": 176,
+            "sbp": 40,
+            "rr": 36,
+            "spo2": 84,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 119.6,
+          "vitals": {
+            "hr": 179,
+            "sbp": 40,
+            "rr": 36,
+            "spo2": 86,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 136.7,
+          "vitals": {
+            "hr": 181,
+            "sbp": 40,
+            "rr": 37,
+            "spo2": 85,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 150.5,
+          "vitals": {
+            "hr": 183,
+            "sbp": 40,
+            "rr": 39,
+            "spo2": 86,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 164.9,
+          "vitals": {
+            "hr": 187,
+            "sbp": 40,
+            "rr": 41,
+            "spo2": 85,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 178.9,
+          "vitals": {
+            "hr": 190,
+            "sbp": 40,
+            "rr": 41,
+            "spo2": 87,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 195.5,
+          "vitals": {
+            "hr": 190,
+            "sbp": 40,
+            "rr": 42,
+            "spo2": 88,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 210.7,
+          "vitals": {
+            "hr": 190,
+            "sbp": 40,
+            "rr": 43,
+            "spo2": 86,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 227.2,
+          "vitals": {
+            "hr": 190,
+            "sbp": 40,
+            "rr": 43,
+            "spo2": 87,
+            "gcs": 11
+          }
+        }
+      ],
+      "surprise": true
+    },
+    {
+      "tag": "P006",
+      "arrivalMin": 20.3,
+      "age": 59,
+      "injuryType": "blast_extremity",
+      "mechanism": "Blast \u2014 structural collapse",
+      "narrative": "mangled right forearm, tourniquet on",
+      "vitals": {
+        "hr": 105,
+        "sbp": 103,
+        "rr": 21,
+        "spo2": 93,
+        "gcs": 14
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "blood_unit",
+          "amount": 3.5,
+          "offsetMin": 9.4,
+          "durationMin": 64.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 13.3,
+          "vitals": {
+            "hr": 108,
+            "sbp": 100,
+            "rr": 21,
+            "spo2": 92,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 28.4,
+          "vitals": {
+            "hr": 108,
+            "sbp": 95,
+            "rr": 22,
+            "spo2": 89,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 44.1,
+          "vitals": {
+            "hr": 112,
+            "sbp": 93,
+            "rr": 22,
+            "spo2": 89,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 56.3,
+          "vitals": {
+            "hr": 115,
+            "sbp": 90,
+            "rr": 25,
+            "spo2": 89,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 74.0,
+          "vitals": {
+            "hr": 119,
+            "sbp": 86,
+            "rr": 24,
+            "spo2": 88,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 86.0,
+          "vitals": {
+            "hr": 122,
+            "sbp": 82,
+            "rr": 24,
+            "spo2": 88,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 103.2,
+          "vitals": {
+            "hr": 123,
+            "sbp": 81,
+            "rr": 25,
+            "spo2": 88,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 117.4,
+          "vitals": {
+            "hr": 124,
+            "sbp": 77,
+            "rr": 27,
+            "spo2": 88,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 134.4,
+          "vitals": {
+            "hr": 128,
+            "sbp": 73,
+            "rr": 28,
+            "spo2": 89,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 146.7,
+          "vitals": {
+            "hr": 129,
+            "sbp": 71,
+            "rr": 28,
+            "spo2": 89,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 162.9,
+          "vitals": {
+            "hr": 131,
+            "sbp": 69,
+            "rr": 29,
+            "spo2": 89,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 178.8,
+          "vitals": {
+            "hr": 131,
+            "sbp": 68,
+            "rr": 29,
+            "spo2": 88,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 195.5,
+          "vitals": {
+            "hr": 136,
+            "sbp": 65,
+            "rr": 30,
+            "spo2": 86,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 213.0,
+          "vitals": {
+            "hr": 137,
+            "sbp": 65,
+            "rr": 28,
+            "spo2": 86,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 227.1,
+          "vitals": {
+            "hr": 140,
+            "sbp": 63,
+            "rr": 28,
+            "spo2": 85,
+            "gcs": 14
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P007",
+      "arrivalMin": 26.2,
+      "age": 20,
+      "injuryType": "burns",
+      "mechanism": "Thermal \u2014 electrical fire",
+      "narrative": "flash burns to face and hands, singed nasal hair",
+      "vitals": {
+        "hr": 105,
+        "sbp": 121,
+        "rr": 25,
+        "spo2": 92,
+        "gcs": 13
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "o2",
+          "amount": 1.5,
+          "offsetMin": 2.3,
+          "durationMin": 119.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 17.9,
+          "vitals": {
+            "hr": 105,
+            "sbp": 121,
+            "rr": 25,
+            "spo2": 92,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 34.6,
+          "vitals": {
+            "hr": 109,
+            "sbp": 120,
+            "rr": 25,
+            "spo2": 91,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 46.6,
+          "vitals": {
+            "hr": 111,
+            "sbp": 119,
+            "rr": 25,
+            "spo2": 90,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 59.8,
+          "vitals": {
+            "hr": 112,
+            "sbp": 118,
+            "rr": 25,
+            "spo2": 91,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 74.6,
+          "vitals": {
+            "hr": 115,
+            "sbp": 117,
+            "rr": 25,
+            "spo2": 90,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 87.4,
+          "vitals": {
+            "hr": 118,
+            "sbp": 116,
+            "rr": 25,
+            "spo2": 92,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 99.5,
+          "vitals": {
+            "hr": 119,
+            "sbp": 116,
+            "rr": 25,
+            "spo2": 92,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 113.1,
+          "vitals": {
+            "hr": 119,
+            "sbp": 115,
+            "rr": 25,
+            "spo2": 93,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 130.1,
+          "vitals": {
+            "hr": 121,
+            "sbp": 113,
+            "rr": 25,
+            "spo2": 92,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 144.5,
+          "vitals": {
+            "hr": 122,
+            "sbp": 112,
+            "rr": 25,
+            "spo2": 90,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 160.5,
+          "vitals": {
+            "hr": 124,
+            "sbp": 110,
+            "rr": 25,
+            "spo2": 88,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 177.8,
+          "vitals": {
+            "hr": 127,
+            "sbp": 109,
+            "rr": 25,
+            "spo2": 86,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 191.4,
+          "vitals": {
+            "hr": 129,
+            "sbp": 107,
+            "rr": 25,
+            "spo2": 86,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 208.9,
+          "vitals": {
+            "hr": 129,
+            "sbp": 105,
+            "rr": 25,
+            "spo2": 84,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 224.5,
+          "vitals": {
+            "hr": 130,
+            "sbp": 103,
+            "rr": 25,
+            "spo2": 86,
+            "gcs": 13
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P008",
+      "arrivalMin": 26.4,
+      "age": 42,
+      "injuryType": "blast_extremity",
+      "mechanism": "Blast \u2014 structural collapse",
+      "narrative": "open tib/fib fracture with heavy bleeding",
+      "vitals": {
+        "hr": 114,
+        "sbp": 109,
+        "rr": 21,
+        "spo2": 92,
+        "gcs": 14
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "blood_unit",
+          "amount": 3.5,
+          "offsetMin": 3.2,
+          "durationMin": 65.0
+        },
+        {
+          "resource": "o2",
+          "amount": 0.5,
+          "offsetMin": 9.1,
+          "durationMin": 103.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 15.4,
+          "vitals": {
+            "hr": 115,
+            "sbp": 105,
+            "rr": 21,
+            "spo2": 91,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 32.4,
+          "vitals": {
+            "hr": 120,
+            "sbp": 101,
+            "rr": 22,
+            "spo2": 91,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 49.3,
+          "vitals": {
+            "hr": 123,
+            "sbp": 97,
+            "rr": 21,
+            "spo2": 91,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 64.6,
+          "vitals": {
+            "hr": 127,
+            "sbp": 93,
+            "rr": 22,
+            "spo2": 90,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 80.0,
+          "vitals": {
+            "hr": 130,
+            "sbp": 90,
+            "rr": 23,
+            "spo2": 91,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 98.0,
+          "vitals": {
+            "hr": 134,
+            "sbp": 87,
+            "rr": 23,
+            "spo2": 90,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 112.8,
+          "vitals": {
+            "hr": 137,
+            "sbp": 83,
+            "rr": 23,
+            "spo2": 88,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 126.8,
+          "vitals": {
+            "hr": 139,
+            "sbp": 81,
+            "rr": 22,
+            "spo2": 90,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 141.7,
+          "vitals": {
+            "hr": 138,
+            "sbp": 80,
+            "rr": 22,
+            "spo2": 89,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 159.6,
+          "vitals": {
+            "hr": 143,
+            "sbp": 77,
+            "rr": 22,
+            "spo2": 89,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 175.0,
+          "vitals": {
+            "hr": 147,
+            "sbp": 74,
+            "rr": 23,
+            "spo2": 88,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 190.3,
+          "vitals": {
+            "hr": 152,
+            "sbp": 71,
+            "rr": 23,
+            "spo2": 88,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 204.9,
+          "vitals": {
+            "hr": 155,
+            "sbp": 68,
+            "rr": 24,
+            "spo2": 88,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 217.0,
+          "vitals": {
+            "hr": 158,
+            "sbp": 64,
+            "rr": 25,
+            "spo2": 88,
+            "gcs": 14
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P009",
+      "arrivalMin": 99.4,
+      "age": 46,
+      "injuryType": "head_injury",
+      "mechanism": "Blunt \u2014 struck by debris",
+      "narrative": "struck on head by falling light rig, unequal pupils",
+      "vitals": {
+        "hr": 80,
+        "sbp": 153,
+        "rr": 18,
+        "spo2": 95,
+        "gcs": 13
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "o2",
+          "amount": 1.5,
+          "offsetMin": 3.0,
+          "durationMin": 129.0
+        },
+        {
+          "resource": "vent",
+          "amount": 1,
+          "offsetMin": 29.5,
+          "durationMin": 0.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 17.2,
+          "vitals": {
+            "hr": 80,
+            "sbp": 153,
+            "rr": 18,
+            "spo2": 94,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 29.5,
+          "vitals": {
+            "hr": 80,
+            "sbp": 153,
+            "rr": 18,
+            "spo2": 94,
+            "gcs": 12
+          }
+        },
+        {
+          "offsetMin": 45.0,
+          "vitals": {
+            "hr": 80,
+            "sbp": 153,
+            "rr": 17,
+            "spo2": 91,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 58.8,
+          "vitals": {
+            "hr": 80,
+            "sbp": 153,
+            "rr": 16,
+            "spo2": 91,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 71.6,
+          "vitals": {
+            "hr": 80,
+            "sbp": 153,
+            "rr": 15,
+            "spo2": 90,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 87.8,
+          "vitals": {
+            "hr": 80,
+            "sbp": 153,
+            "rr": 14,
+            "spo2": 90,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 101.4,
+          "vitals": {
+            "hr": 80,
+            "sbp": 153,
+            "rr": 13,
+            "spo2": 91,
+            "gcs": 9
+          }
+        },
+        {
+          "offsetMin": 118.5,
+          "vitals": {
+            "hr": 80,
+            "sbp": 153,
+            "rr": 13,
+            "spo2": 92,
+            "gcs": 9
+          }
+        },
+        {
+          "offsetMin": 134.7,
+          "vitals": {
+            "hr": 80,
+            "sbp": 153,
+            "rr": 13,
+            "spo2": 91,
+            "gcs": 8
+          }
+        },
+        {
+          "offsetMin": 147.4,
+          "vitals": {
+            "hr": 80,
+            "sbp": 153,
+            "rr": 11,
+            "spo2": 90,
+            "gcs": 7
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P010",
+      "arrivalMin": 104.7,
+      "age": 77,
+      "injuryType": "inhalation",
+      "mechanism": "Inhalation \u2014 smoke and dust",
+      "narrative": "coughing, hoarse voice after dust and smoke exposure",
+      "vitals": {
+        "hr": 116,
+        "sbp": 111,
+        "rr": 29,
+        "spo2": 88,
+        "gcs": 15
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [],
+      "trajectory": [
+        {
+          "offsetMin": 17.1,
+          "vitals": {
+            "hr": 116,
+            "sbp": 111,
+            "rr": 28,
+            "spo2": 88,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 30.6,
+          "vitals": {
+            "hr": 116,
+            "sbp": 111,
+            "rr": 29,
+            "spo2": 88,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 43.4,
+          "vitals": {
+            "hr": 116,
+            "sbp": 111,
+            "rr": 28,
+            "spo2": 89,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 60.1,
+          "vitals": {
+            "hr": 116,
+            "sbp": 111,
+            "rr": 28,
+            "spo2": 89,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 72.5,
+          "vitals": {
+            "hr": 116,
+            "sbp": 111,
+            "rr": 29,
+            "spo2": 91,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 89.1,
+          "vitals": {
+            "hr": 116,
+            "sbp": 111,
+            "rr": 31,
+            "spo2": 91,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 101.3,
+          "vitals": {
+            "hr": 116,
+            "sbp": 111,
+            "rr": 33,
+            "spo2": 90,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 116.2,
+          "vitals": {
+            "hr": 116,
+            "sbp": 111,
+            "rr": 33,
+            "spo2": 90,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 129.9,
+          "vitals": {
+            "hr": 116,
+            "sbp": 111,
+            "rr": 33,
+            "spo2": 90,
+            "gcs": 15
+          }
+        },
+        {
+          "offsetMin": 147.0,
+          "vitals": {
+            "hr": 116,
+            "sbp": 111,
+            "rr": 33,
+            "spo2": 89,
+            "gcs": 15
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P011",
+      "arrivalMin": 107.9,
+      "age": 49,
+      "injuryType": "head_injury",
+      "mechanism": "Blunt \u2014 struck by debris",
+      "narrative": "found unresponsive under seating, scalp laceration",
+      "vitals": {
+        "hr": 67,
+        "sbp": 140,
+        "rr": 16,
+        "spo2": 90,
+        "gcs": 12
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "o2",
+          "amount": 1.0,
+          "offsetMin": 4.8,
+          "durationMin": 128.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 16.9,
+          "vitals": {
+            "hr": 67,
+            "sbp": 140,
+            "rr": 15,
+            "spo2": 90,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 34.2,
+          "vitals": {
+            "hr": 67,
+            "sbp": 140,
+            "rr": 13,
+            "spo2": 89,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 46.7,
+          "vitals": {
+            "hr": 67,
+            "sbp": 140,
+            "rr": 13,
+            "spo2": 89,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 64.4,
+          "vitals": {
+            "hr": 67,
+            "sbp": 140,
+            "rr": 14,
+            "spo2": 89,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 81.1,
+          "vitals": {
+            "hr": 67,
+            "sbp": 140,
+            "rr": 11,
+            "spo2": 88,
+            "gcs": 9
+          }
+        },
+        {
+          "offsetMin": 93.9,
+          "vitals": {
+            "hr": 67,
+            "sbp": 140,
+            "rr": 10,
+            "spo2": 89,
+            "gcs": 8
+          }
+        },
+        {
+          "offsetMin": 109.4,
+          "vitals": {
+            "hr": 67,
+            "sbp": 140,
+            "rr": 9,
+            "spo2": 89,
+            "gcs": 7
+          }
+        },
+        {
+          "offsetMin": 127.1,
+          "vitals": {
+            "hr": 67,
+            "sbp": 140,
+            "rr": 9,
+            "spo2": 88,
+            "gcs": 7
+          }
+        },
+        {
+          "offsetMin": 141.1,
+          "vitals": {
+            "hr": 67,
+            "sbp": 140,
+            "rr": 8,
+            "spo2": 87,
+            "gcs": 6
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P012",
+      "arrivalMin": 110.3,
+      "age": 21,
+      "injuryType": "inhalation",
+      "mechanism": "Inhalation \u2014 smoke and dust",
+      "narrative": "coughing, hoarse voice after dust and smoke exposure",
+      "vitals": {
+        "hr": 102,
+        "sbp": 116,
+        "rr": 26,
+        "spo2": 87,
+        "gcs": 14
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "o2",
+          "amount": 1.0,
+          "offsetMin": 0.5,
+          "durationMin": 100.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 17.2,
+          "vitals": {
+            "hr": 102,
+            "sbp": 116,
+            "rr": 27,
+            "spo2": 86,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 29.2,
+          "vitals": {
+            "hr": 102,
+            "sbp": 116,
+            "rr": 27,
+            "spo2": 86,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 46.8,
+          "vitals": {
+            "hr": 102,
+            "sbp": 116,
+            "rr": 27,
+            "spo2": 85,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 60.3,
+          "vitals": {
+            "hr": 102,
+            "sbp": 116,
+            "rr": 27,
+            "spo2": 86,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 76.3,
+          "vitals": {
+            "hr": 102,
+            "sbp": 116,
+            "rr": 29,
+            "spo2": 87,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 89.4,
+          "vitals": {
+            "hr": 102,
+            "sbp": 116,
+            "rr": 31,
+            "spo2": 86,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 103.8,
+          "vitals": {
+            "hr": 102,
+            "sbp": 116,
+            "rr": 33,
+            "spo2": 86,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 118.0,
+          "vitals": {
+            "hr": 102,
+            "sbp": 116,
+            "rr": 32,
+            "spo2": 85,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 135.1,
+          "vitals": {
+            "hr": 102,
+            "sbp": 116,
+            "rr": 29,
+            "spo2": 86,
+            "gcs": 14
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P013",
+      "arrivalMin": 112.2,
+      "age": 25,
+      "injuryType": "burns",
+      "mechanism": "Thermal \u2014 electrical fire",
+      "narrative": "partial-thickness burns ~20% TBSA arms and torso",
+      "vitals": {
+        "hr": 118,
+        "sbp": 120,
+        "rr": 27,
+        "spo2": 91,
+        "gcs": 13
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "o2",
+          "amount": 1.5,
+          "offsetMin": 4.9,
+          "durationMin": 99.0
+        },
+        {
+          "resource": "vent",
+          "amount": 1,
+          "offsetMin": 45.1,
+          "durationMin": 0.0
+        },
+        {
+          "resource": "blood_unit",
+          "amount": 3,
+          "offsetMin": 25,
+          "durationMin": 45
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 16.8,
+          "vitals": {
+            "hr": 121,
+            "sbp": 118,
+            "rr": 27,
+            "spo2": 90,
+            "gcs": 13
+          }
+        },
+        {
+          "offsetMin": 31.0,
+          "vitals": {
+            "hr": 152,
+            "sbp": 84,
+            "rr": 36,
+            "spo2": 83,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 44.8,
+          "vitals": {
+            "hr": 153,
+            "sbp": 84,
+            "rr": 36,
+            "spo2": 83,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 57.9,
+          "vitals": {
+            "hr": 156,
+            "sbp": 82,
+            "rr": 36,
+            "spo2": 81,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 70.3,
+          "vitals": {
+            "hr": 158,
+            "sbp": 81,
+            "rr": 36,
+            "spo2": 80,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 87.2,
+          "vitals": {
+            "hr": 159,
+            "sbp": 80,
+            "rr": 36,
+            "spo2": 80,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 101.8,
+          "vitals": {
+            "hr": 160,
+            "sbp": 77,
+            "rr": 36,
+            "spo2": 80,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 118.8,
+          "vitals": {
+            "hr": 161,
+            "sbp": 75,
+            "rr": 36,
+            "spo2": 79,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 134.4,
+          "vitals": {
+            "hr": 163,
+            "sbp": 73,
+            "rr": 36,
+            "spo2": 79,
+            "gcs": 10
+          }
+        }
+      ],
+      "surprise": true
+    },
+    {
+      "tag": "P014",
+      "arrivalMin": 115.4,
+      "age": 63,
+      "injuryType": "penetrating_torso",
+      "mechanism": "Penetrating \u2014 falling steel / debris",
+      "narrative": "penetrating abdominal wound from falling steel",
+      "vitals": {
+        "hr": 145,
+        "sbp": 84,
+        "rr": 31,
+        "spo2": 91,
+        "gcs": 13
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "blood_unit",
+          "amount": 6.0,
+          "offsetMin": 2.7,
+          "durationMin": 94.0
+        },
+        {
+          "resource": "or_table",
+          "amount": 1,
+          "offsetMin": 22.7,
+          "durationMin": 79.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 14.5,
+          "vitals": {
+            "hr": 148,
+            "sbp": 78,
+            "rr": 33,
+            "spo2": 88,
+            "gcs": 12
+          }
+        },
+        {
+          "offsetMin": 27.6,
+          "vitals": {
+            "hr": 151,
+            "sbp": 76,
+            "rr": 35,
+            "spo2": 90,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 43.4,
+          "vitals": {
+            "hr": 155,
+            "sbp": 69,
+            "rr": 37,
+            "spo2": 90,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 59.0,
+          "vitals": {
+            "hr": 159,
+            "sbp": 64,
+            "rr": 39,
+            "spo2": 89,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 73.3,
+          "vitals": {
+            "hr": 164,
+            "sbp": 60,
+            "rr": 40,
+            "spo2": 88,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 87.4,
+          "vitals": {
+            "hr": 168,
+            "sbp": 57,
+            "rr": 41,
+            "spo2": 88,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 103.7,
+          "vitals": {
+            "hr": 174,
+            "sbp": 52,
+            "rr": 44,
+            "spo2": 87,
+            "gcs": 9
+          }
+        },
+        {
+          "offsetMin": 118.7,
+          "vitals": {
+            "hr": 179,
+            "sbp": 48,
+            "rr": 45,
+            "spo2": 86,
+            "gcs": 9
+          }
+        },
+        {
+          "offsetMin": 135.2,
+          "vitals": {
+            "hr": 185,
+            "sbp": 40,
+            "rr": 47,
+            "spo2": 86,
+            "gcs": 8
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P015",
+      "arrivalMin": 117.4,
+      "age": 46,
+      "injuryType": "penetrating_torso",
+      "mechanism": "Penetrating \u2014 falling steel / debris",
+      "narrative": "penetrating abdominal wound from falling steel",
+      "vitals": {
+        "hr": 124,
+        "sbp": 95,
+        "rr": 32,
+        "spo2": 91,
+        "gcs": 13
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "blood_unit",
+          "amount": 7.0,
+          "offsetMin": 6.0,
+          "durationMin": 93.0
+        },
+        {
+          "resource": "or_table",
+          "amount": 1,
+          "offsetMin": 15.5,
+          "durationMin": 107.0
+        },
+        {
+          "resource": "o2",
+          "amount": 2.0,
+          "offsetMin": 4.0,
+          "durationMin": 105.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 15.9,
+          "vitals": {
+            "hr": 127,
+            "sbp": 92,
+            "rr": 32,
+            "spo2": 90,
+            "gcs": 12
+          }
+        },
+        {
+          "offsetMin": 30.0,
+          "vitals": {
+            "hr": 131,
+            "sbp": 89,
+            "rr": 34,
+            "spo2": 89,
+            "gcs": 12
+          }
+        },
+        {
+          "offsetMin": 46.5,
+          "vitals": {
+            "hr": 137,
+            "sbp": 81,
+            "rr": 35,
+            "spo2": 86,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 61.4,
+          "vitals": {
+            "hr": 139,
+            "sbp": 77,
+            "rr": 36,
+            "spo2": 86,
+            "gcs": 11
+          }
+        },
+        {
+          "offsetMin": 78.7,
+          "vitals": {
+            "hr": 143,
+            "sbp": 70,
+            "rr": 39,
+            "spo2": 83,
+            "gcs": 10
+          }
+        },
+        {
+          "offsetMin": 95.3,
+          "vitals": {
+            "hr": 149,
+            "sbp": 63,
+            "rr": 42,
+            "spo2": 82,
+            "gcs": 9
+          }
+        },
+        {
+          "offsetMin": 109.1,
+          "vitals": {
+            "hr": 154,
+            "sbp": 58,
+            "rr": 45,
+            "spo2": 80,
+            "gcs": 8
+          }
+        },
+        {
+          "offsetMin": 122.1,
+          "vitals": {
+            "hr": 157,
+            "sbp": 54,
+            "rr": 46,
+            "spo2": 80,
+            "gcs": 8
+          }
+        },
+        {
+          "offsetMin": 136.9,
+          "vitals": {
+            "hr": 159,
+            "sbp": 50,
+            "rr": 48,
+            "spo2": 78,
+            "gcs": 8
+          }
+        }
+      ],
+      "surprise": false
+    },
+    {
+      "tag": "P016",
+      "arrivalMin": 121.9,
+      "age": 63,
+      "injuryType": "inhalation",
+      "mechanism": "Inhalation \u2014 smoke and dust",
+      "narrative": "coughing, hoarse voice after dust and smoke exposure",
+      "vitals": {
+        "hr": 106,
+        "sbp": 116,
+        "rr": 24,
+        "spo2": 90,
+        "gcs": 14
+      },
+      "assessment": {
+        "walks": false,
+        "minorInjuriesOnly": false
+      },
+      "needs": [
+        {
+          "resource": "o2",
+          "amount": 1.0,
+          "offsetMin": 0.2,
+          "durationMin": 86.0
+        }
+      ],
+      "trajectory": [
+        {
+          "offsetMin": 16.9,
+          "vitals": {
+            "hr": 106,
+            "sbp": 116,
+            "rr": 25,
+            "spo2": 88,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 32.9,
+          "vitals": {
+            "hr": 106,
+            "sbp": 116,
+            "rr": 25,
+            "spo2": 86,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 45.2,
+          "vitals": {
+            "hr": 106,
+            "sbp": 116,
+            "rr": 25,
+            "spo2": 86,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 60.6,
+          "vitals": {
+            "hr": 106,
+            "sbp": 116,
+            "rr": 24,
+            "spo2": 84,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 76.2,
+          "vitals": {
+            "hr": 106,
+            "sbp": 116,
+            "rr": 23,
+            "spo2": 83,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 93.0,
+          "vitals": {
+            "hr": 106,
+            "sbp": 116,
+            "rr": 22,
+            "spo2": 81,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 107.1,
+          "vitals": {
+            "hr": 106,
+            "sbp": 116,
+            "rr": 22,
+            "spo2": 83,
+            "gcs": 14
+          }
+        },
+        {
+          "offsetMin": 122.1,
+          "vitals": {
+            "hr": 106,
+            "sbp": 116,
+            "rr": 23,
+            "spo2": 82,
+            "gcs": 14
+          }
+        }
+      ],
+      "surprise": false
+    }
+  ],
+  "evacSlots": [
+    {
+      "atMin": 165,
+      "mode": "air",
+      "callsign": "DUSTOFF 7",
+      "seats": 3,
+      "departInMin": 20,
+      "destination": "Role 3 hospital",
+      "capability": "trauma_surgery"
+    }
+  ],
+  "resupply": [
+    {
+      "atMin": 60,
+      "resourceType": "o2",
+      "amount": 6,
+      "etaMin": 200
+    }
+  ]
+}
