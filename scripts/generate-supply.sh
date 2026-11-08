@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export PATH="$PATH:$HOME/.local/bin"
 BUILD_DIR="$(mktemp -d "${TMPDIR:-/tmp}/argus-supply-generate.XXXXXX")"
 cp -R "$ROOT/server/src" "$BUILD_DIR/src"
 cp "$ROOT/server/package.json" "$ROOT/server/tsconfig.json" "$BUILD_DIR/"

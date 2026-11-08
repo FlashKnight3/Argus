@@ -4,6 +4,7 @@ import { InventoryPage } from './InventoryPage';
 import { TransfersPage } from './TransfersPage';
 import { FdaPage } from './FdaPage';
 import { NetworkPage } from './NetworkPage';
+import { WorkerSetup } from './WorkerSetup';
 import { isCurrentShortage } from './fda';
 import { Empty, Panel, Pill, errorText, number, riskTone, siteName } from './ui';
 import { useActions, useSupply, type Inventory, type SupplyActions, type SupplyState } from './useSupply';
@@ -128,7 +129,7 @@ export default function App() {
     <div className="content-shell"><header className="topbar"><div><div className="eyebrow">ARGUS / {view.toUpperCase()}</div><strong>{NAV.find(item => item.id === view)?.label}</strong></div><div className="topbar-actions">
       {state.me.role === 'admin' && <select aria-label="Site filter" value={siteFilter} onChange={event => setSiteFilter(Number(event.target.value))}><option value={0}>All sites</option>{state.sites.map(site => <option key={site.id} value={site.id}>{site.name}</option>)}</select>}
       <div className="user-chip"><span>{state.me.name.slice(0, 1).toUpperCase()}</span><div><strong>{state.me.name}</strong><small>{state.me.role === 'admin' ? 'Network admin' : siteName(state.sites, state.me.siteId)}</small></div></div>
-    </div></header><main className="main-content">{page}</main></div>
+    </div></header><main className="main-content"><WorkerSetup state={state} actions={actions} notify={notify} openNetwork={() => setView('network')} />{page}</main></div>
     {message && <div className={`toast ${message.bad ? 'bad' : ''}`}>{message.text}</div>}
   </div>;
 }

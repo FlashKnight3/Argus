@@ -11,10 +11,22 @@ cleanup() {
   wait 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
+# The SpacetimeDB installer puts the CLI in ~/.local/bin, which non-login shells often miss.
+export PATH="$PATH:$HOME/.local/bin"
 for binary in spacetime node python3 curl; do command -v "$binary" >/dev/null || { echo "Missing $binary" >&2; exit 1; }; done
-if ! node --input-type=module -e "import('vite'); import('spacetimedb')" >/dev/null 2>&1; then
+# Check the exact files the publish and web steps need. A partial install can still
+# satisfy `import('spacetimedb')` while lacking the server entry point or tsc.
+deps_ok() {
+  local f
+  for f in node_modules/spacetimedb/dist/server/index.mjs node_modules/spacetimedb/dist/server/index.d.ts \
+           node_modules/.bin/tsc node_modules/.bin/vite; do
+    [ -e "$ROOT/$f" ] || return 1
+  done
+}
+if ! deps_ok; then
   echo "Installing JavaScript dependencies…"
   (cd "$ROOT" && npm ci --no-fund --no-audit)
+  deps_ok || { echo "Dependencies are still incomplete after npm ci." >&2; exit 1; }
 fi
 if curl -fsS -o /dev/null http://127.0.0.1:3000/v1/ping 2>/dev/null; then
   echo "Using SpacetimeDB already running on port 3000."
@@ -31,18 +43,20 @@ else
 fi
 "$ROOT/scripts/publish-supply.sh" > "$LOG_DIR/publish.log" 2>&1 || { cat "$LOG_DIR/publish.log"; exit 1; }
 echo "Database published: argus-supply"
-echo "Worker identity: $(cd "$ROOT" && python3 worker/argus_supply.py --identity)"
+WORKER_IDENTITY="$(cd "$ROOT" && python3 worker/argus_supply.py --identity)"
+echo "Worker identity: $WORKER_IDENTITY"
 echo "The worker will import the real FDA shortage feed after an admin grants its identity the service role."
-(cd "$ROOT" && python3 worker/argus_supply.py) > "$LOG_DIR/worker.log" 2>&1 &
+(cd "$ROOT" && exec python3 worker/argus_supply.py) > "$LOG_DIR/worker.log" 2>&1 &
 PIDS+=("$!")
 WEB_PORT="${ARGUS_SUPPLY_WEB_PORT:-5173}"
 while (echo > "/dev/tcp/127.0.0.1/$WEB_PORT") >/dev/null 2>&1; do WEB_PORT=$((WEB_PORT + 1)); done
-(cd "$ROOT/web" && "$ROOT/node_modules/.bin/vite" --host --port "$WEB_PORT" --strictPort) > "$LOG_DIR/web.log" 2>&1 &
+# The dashboard offers admins a one-click grant for this identity; it never grants on its own.
+(cd "$ROOT/web" && VITE_ARGUS_WORKER_IDENTITY="$WORKER_IDENTITY" exec "$ROOT/node_modules/.bin/vite" --host --port "$WEB_PORT" --strictPort) > "$LOG_DIR/web.log" 2>&1 &
 WEB_PID=$!
 PIDS+=("$WEB_PID")
 sleep 2
 if ! kill -0 "$WEB_PID" 2>/dev/null; then cat "$LOG_DIR/web.log"; exit 1; fi
 echo "Dashboard: http://localhost:$WEB_PORT"
-echo "Open that URL and, in Network, grant the worker identity the service role."
+echo "Open that URL. As admin, click \"Activate FDA worker\" to start the FDA import."
 echo "Logs: $LOG_DIR"
 wait
