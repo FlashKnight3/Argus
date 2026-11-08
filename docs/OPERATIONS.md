@@ -2,39 +2,63 @@
 
 ## Start and stop
 
-Run `npm ci` once, then `npm run demo` from the repository root. `Ctrl-C` stops the web process and worker started by that invocation. It leaves an already-running SpacetimeDB server alone and preserves `.spacetime/` data. The script publishes `argus-supply` with `--delete-data=never`; an incompatible schema update fails rather than wiping stock.
+Run `npm ci` once.
 
-If port 5173 is busy, the script chooses the next free port. Read the printed URL. To choose a starting port, run `ARGUS_SUPPLY_WEB_PORT=5180 npm run demo`. The worker token is in `.argus-supply/service.json`. `npm run worker:identity` prints the identity to grant in Network. Do not delete this token without also updating the network membership.
+- `npm run demo` runs the real network, `argus-supply`.
+- `npm run sandbox` runs `argus-supply-sandbox` with synthetic data.
 
-Logs are under `logs/supply-YYYYMMDD-HHMMSS-PID/`: `spacetimedb.log` when this script starts the DB, `publish.log`, `worker.log`, and `web.log`. The worker logs unauthorized status until its identity receives the service role. It uses a validated system CA bundle for the FDA HTTPS request; `SSL_CERT_FILE` can specify a trusted bundle on platforms without one.
+Both publish with `--delete-data=never` (an incompatible schema change fails rather than wiping stock), start `ARGUS_WORKERS` workers (default 2) named `worker-a`, `worker-b`, …, and serve the web app from port 5173 or the next free port (`ARGUS_SUPPLY_WEB_PORT` sets the start). `Ctrl-C` stops everything that invocation started. A SpacetimeDB server that was already running is left alone. Data lives in `.spacetime/`.
+
+The worker token is in `.argus-supply/service.json` (all workers share this identity and differ by worker ID). `npm run worker:identity` prints it. The sandbox seeder has its own token in `.argus-supply/sandbox-seeder.json`. Keep both private, and don't delete `service.json` without updating membership.
+
+Logs are written to `logs/supply-YYYYMMDD-HHMMSS-PID/`: `publish.log`, `worker-a.log`, `worker-b.log`, `seed.log` (sandbox), `web.log`, and `spacetimedb.log` (when the script started the database).
 
 ## Manual commands
 
 ```bash
 spacetime start --data-dir .spacetime --non-interactive
-npm run publish:local
+npm run publish:local                       # or: bash scripts/publish-supply.sh <db>
+npm run agent -- --name worker-a            # repeat in more terminals for more workers
+npm run agent -- --db argus-supply-sandbox --mode rules
+npm run sandbox:seed -- --db argus-supply-sandbox
 npm run dev
-npm run worker:identity
-npm run worker
 ```
 
-Use separate terminals for long-running commands. After a schema change, run `npm run generate` and `npm run build`. `scripts/publish-supply.sh` stages the module under the OS temporary directory to avoid stale or root-owned `server/dist` files. It never deletes an existing database.
+**Environment variables:**
 
-For a non-default database endpoint, set `ARGUS_SUPPLY_DB_HOST` and `ARGUS_SUPPLY_DB_NAME` for the worker. Copy `web/.env.example` to `web/.env` and set `VITE_SPACETIMEDB_HOST` and `VITE_SPACETIMEDB_DB_NAME` for the browser. Use `wss://` and `https://` when placing a server behind TLS. The launcher itself targets the default local server and `argus-supply` database.
+| Variable | Used by | Purpose |
+|---|---|---|
+| `ARGUS_SUPPLY_DB_HOST` | workers | Database host |
+| `ARGUS_SUPPLY_DB_NAME` | workers | Database name |
+| `ARGUS_AGENT_MODE` | workers | `auto`, `llm`, or `rules` |
+| `ANTHROPIC_API_KEY` | workers | Enables the Claude agent |
+| `ARGUS_AGENT_MODEL` | workers | Overrides the Claude model |
+| `ARGUS_AGENT_EFFORT` | workers | Overrides the effort level |
+| `VITE_SPACETIMEDB_HOST` | web | Database host (copy `web/.env.example` to `web/.env`) |
+| `VITE_SPACETIMEDB_DB_NAME` | web | Database name |
 
-## What the common errors mean
+After a schema change, run `npm run generate` then `npm run typecheck`. Adding columns requires a `.default(...)` so existing rows migrate.
+
+## Demonstrating the distributed behavior
+
+- **Failover:** `kill <worker pid>`. Within about 10 s, System → Leases shows its resources at the survivor with a higher epoch, and the log shows `lease.acquire … taken over`.
+- **Partition or pause:** `kill -STOP <pid>`, wait 15 s, then `kill -CONT <pid>`. The frozen worker is marked offline, loses its leases, and rejoins at new epochs. Any write it attempts under an old epoch is rejected (`Fenced`).
+- **Offline browser:** stop SpacetimeDB or disconnect, record usage or edit a count (the chip shows *Offline · N queued*), then reconnect. The writes replay once. An edit made on a stale revision shows up as a conflict.
+- **Reservation expiry:** set a small TTL in System → Settings, reserve a transfer, and watch the sweep cancel it and release the stock.
+
+## Common problems
 
 | Symptom | Cause and action |
 |---|---|
-| `ERR_MODULE_NOT_FOUND ... magic-string` from Tailwind | Old Vite config loaded a damaged Tailwind dependency. The current Vite config no longer loads that plugin. If other packages are missing, run `npm ci`. |
-| `logs/publish.log: Permission denied` | A prior run left root-owned log files. The launcher now creates a unique log directory for every run. |
-| `tsc not found` | Dependencies were incomplete. Run `npm ci`; the published module uses its workspace TypeScript dev dependency. |
-| `Connection refused` at `127.0.0.1:3000` | SpacetimeDB is not listening. Run `npm run demo`, then read `spacetimedb.log`. |
-| `spacetime.pid already exists` | Another local SpacetimeDB process owns the data directory. Check port 3000 and the process before starting another instance. Do not delete the PID file while a process is alive. |
-| Access Pending | The database already has an admin. Give that admin the browser identity shown on screen; clearing browser storage creates a new identity. |
-| FDA sync stuck or failed | Check `worker.log`, network access, FDA rate limits, and `sync_state`. An admin can retry with the Sync button. Existing completed records remain visible. |
-| Forecast pending | Grant the worker service access, enter a daily use baseline or usage, and check worker logs. A changed inventory revision requires recomputation. |
+| `tsc not found` / `Could not resolve 'spacetimedb/server'` | Incomplete `node_modules`. The demo script now detects this and runs `npm ci`. |
+| `Missing spacetime` | The CLI is in `~/.local/bin`; the scripts add it, but check your installation. |
+| Worker log: "Waiting for the service role" | An admin must grant the worker identity (Activate FDA worker, or Network). |
+| Access Pending | The network already has an admin; give that admin the identity shown on screen. In a sandbox, use Join sandbox as admin. |
+| No agent runs | Check that a worker holds the `agent` lease (System), that auto-run is on, and that items have forecasts. Runs fire only once forecasts are current. |
+| Claude errors in a run trace | Bad or missing key, or rate limits. The run falls back to the deterministic planner automatically. |
+| Calibration empty | Needs about three weeks of recorded usage per site. |
+| `spacetime.pid already exists` | Another SpacetimeDB process owns `.spacetime/`. Check port 3000 before starting another. |
 
-## Recovery and backups
+## Recovery
 
-Do not use `spacetime publish --delete-data` or `--delete-data=on-conflict` for this database. Back up `.spacetime/` with the server stopped or use a SpacetimeDB-supported consistent backup procedure before upgrades. Restore the data and the relevant identities together; browser and worker tokens control their grants. This repository does not include automated backup, replication, or disaster recovery.
+Never publish with `--delete-data` for `argus-supply`. Back up `.spacetime/` with the server stopped before upgrades, and restore it together with `.argus-supply/` tokens. Browser identities live in browser storage, and clearing it creates a new identity.

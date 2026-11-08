@@ -244,3 +244,66 @@ code{font-size:11px;overflow-wrap:anywhere}
 .modal{padding:18px}
 .form-grid{gap:8px}
 }
+
+/* ── Distributed / agent additions ───────────────────────────── */
+.status-chip{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;padding:6px 10px;border-radius:999px;border:1px solid #dfebdd;background:#f4faf2;color:#368057}
+.status-chip.offline{background:#fff4ec;border-color:#f2d9c6;color:#a4561f}
+.status-chip.syncing{background:#eef4fb;border-color:#d7e4f3;color:#2f5f93}
+.live-dot{width:7px;height:7px;border-radius:50%;background:#3aa265;box-shadow:0 0 0 3px #3aa26522}
+.connection-dot.off{background:#d0893f}
+.sandbox-banner{display:flex;align-items:center;gap:8px;justify-content:center;padding:7px 12px;font-size:11px;font-weight:600;letter-spacing:.02em;background:#fff5d6;color:#7a5a00;border-bottom:1px solid #f0e2ad}
+.conflict-strip{background:#fff4ec;border-color:#f2d9c6;color:#7d4a22;margin-bottom:18px;flex-wrap:wrap}
+.conflict-strip span{flex:1}
+.risk-meter{position:relative;height:26px;border-radius:7px;background:#f1f4f0;overflow:hidden;margin:8px 0}
+.risk-meter span{position:relative;z-index:1;font-size:11px;line-height:26px;padding-left:9px;color:#283a2f}
+.risk-fill{position:absolute;inset:0 auto 0 0;background:#c9e6cf}
+.risk-fill.watch{background:#f4dfa8}.risk-fill.danger{background:#f2b9ab}.risk-fill.neutral{background:#dfe5dd}
+.badge-row{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0}
+.suggestion{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-top:10px;padding:10px;border:1px dashed #cfdde9;border-radius:9px;background:#f7fafd;font-size:12px}
+.suggestion p{margin:4px 0 0;color:#5e6f64}
+.suggestion-actions{display:flex;gap:6px;flex-shrink:0}
+.row-actions{display:inline-flex;align-items:center;gap:6px}
+.agent-request{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.agent-request input{min-width:260px;max-width:100%}
+.trace{display:flex;flex-direction:column;gap:8px;max-height:620px;overflow:auto}
+.trace-note{font-size:12px;color:#40584a;background:#f4faf2;padding:8px 10px;border-radius:8px}
+.trace-step{border-left:3px solid #dfe7dd;padding:4px 0 4px 10px}
+.trace-step.tool_call{border-color:#9cc2e6}.trace-step.tool_result{border-color:#c5d9ea}
+.trace-step.final{border-color:#3aa265}.trace-step.error{border-color:#d0893f}.trace-step.plan{border-color:#b9a7e4}
+.trace-head{display:flex;align-items:center;gap:6px;font-size:11px;color:#40584a}
+.trace-head small{margin-left:auto;color:#8a998f}
+.trace-head code{font-size:10px;background:#eef3ee;padding:1px 5px;border-radius:4px}
+.trace-step pre{white-space:pre-wrap;word-break:break-word;font-family:inherit;font-size:12px;margin:4px 0 0;color:#283a2f}
+.event-list.wide div{grid-template-columns:120px 1fr auto}
+.checkbox{display:flex !important;flex-direction:row !important;align-items:center;gap:8px}
+.checkbox input{width:auto}
+.section-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+@media (max-width:720px){.agent-request input{min-width:0;width:100%}.suggestion{flex-direction:column}}
+
+/* ── Agent page polish ───────────────────────────────────────── */
+.agent-layout{display:grid;grid-template-columns:minmax(280px,.75fr) minmax(0,1.5fr);gap:16px;align-items:start}
+.agent-request{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid #e3ebe1;border-radius:12px;padding:10px 12px}
+.agent-request input{flex:1;min-width:0;border:none;background:transparent;font-size:13px;outline:none;padding:6px 2px}
+.agent-request .button{flex-shrink:0}
+.run-preview{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;color:#5e6f64}
+.agent-layout .notice-list{max-height:640px;overflow:auto}
+.trace{max-height:none}
+.trace-args{font-size:12px;color:#40584a;margin-top:3px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.trace-step details summary{display:flex;align-items:center;gap:6px;font-size:11px;color:#40584a;cursor:pointer;list-style:none}
+.trace-step details summary::-webkit-details-marker{display:none}
+.trace-step details summary .muted{margin-left:auto;font-size:11px}
+.trace-step.rejected{border-color:#d0893f}
+.trace-step.rejected summary .muted{color:#a4561f;margin-left:6px}
+.trace-json{max-height:260px;overflow:auto;background:#f6f8f5;border-radius:8px;padding:10px;font-size:11px !important;font-family:ui-monospace,SFMono-Regular,Menlo,monospace !important}
+.md{font-size:13px;line-height:1.55;color:#283a2f;margin-top:4px}
+.md p{margin:0 0 8px}
+.md h4{font-size:13px;margin:10px 0 4px}
+.md ul,.md ol{margin:0 0 8px;padding-left:20px}
+.md li{margin:2px 0}
+.md code{font-size:11px;background:#eef3ee;padding:1px 5px;border-radius:4px}
+.md-table{overflow-x:auto;margin:4px 0 10px;border:1px solid #e6ece4;border-radius:8px}
+.md-table table{border-collapse:collapse;width:100%;font-size:12px}
+.md-table th{background:#f4f8f2;text-align:left;font-weight:600;color:#40584a}
+.md-table th,.md-table td{padding:6px 9px;border-bottom:1px solid #edf1ec;vertical-align:top}
+.md-table tr:last-child td{border-bottom:none}
+@media (max-width:980px){.agent-layout{grid-template-columns:1fr}}

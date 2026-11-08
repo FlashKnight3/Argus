@@ -1,32 +1,47 @@
 import { useMemo } from 'react';
 import { useReducer, useSpacetimeDB, useTable } from 'spacetimedb/react';
 import { reducers, tables } from '../supply_bindings';
-import type { Activity, Forecast, Inventory, Member, Proposal, Shortage, Site, StockEvent, SyncState, Transfer } from '../supply_bindings/types';
+// View rows share their base table's shape; the generated *View aliases are empty, so use the table types.
+import type {
+  Activity, AgentRun, AgentStep, NetworkConfig as Config, Forecast, Inventory, Lease, MatchSuggestion,
+  Member, ModelMetric as Metric, Proposal, Shortage, Site, StockEvent, SyncState, Transfer, Worker,
+} from '../supply_bindings/types';
 
-export type { Activity, Forecast, Inventory, Member, Proposal, Shortage, Site, StockEvent, SyncState, Transfer };
+export type { Activity, AgentRun, AgentStep, Config, Forecast, Inventory, Lease, MatchSuggestion, Member, Metric, Proposal,
+  Shortage, Site, StockEvent, SyncState, Transfer, Worker };
 
 export function useSupply() {
   const connection = useSpacetimeDB();
-  const [sites, sitesReady] = useTable(tables.site);
-  const [members, membersReady] = useTable(tables.member);
-  const [inventory] = useTable(tables.inventory);
-  const [stockEvents] = useTable(tables.stockEvent);
+  const [status, statusReady] = useTable(tables.networkStatus);
+  const [sites, sitesReady] = useTable(tables.siteView);
+  const [members, membersReady] = useTable(tables.memberView);
+  const [inventory] = useTable(tables.inventoryView);
+  const [stockEvents] = useTable(tables.stockEventView);
   const [shortages] = useTable(tables.shortage);
   const [syncStates] = useTable(tables.syncState);
-  const [transfers] = useTable(tables.transfer);
-  const [forecasts] = useTable(tables.forecast);
-  const [proposals] = useTable(tables.proposal);
-  const [activity] = useTable(tables.activity);
+  const [transfers] = useTable(tables.transferView);
+  const [forecasts] = useTable(tables.forecastView);
+  const [proposals] = useTable(tables.proposalView);
+  const [activity] = useTable(tables.activityView);
+  const [configs] = useTable(tables.configView);
+  const [workers] = useTable(tables.workerView);
+  const [leases] = useTable(tables.leaseView);
+  const [agentRuns] = useTable(tables.agentRunView);
+  const [agentSteps] = useTable(tables.agentStepView);
+  const [matches] = useTable(tables.matchView);
+  const [metrics] = useTable(tables.metricView);
   const identity = connection.identity?.toHexString().toLowerCase() ?? '';
 
   return useMemo(() => ({
     connected: connection.isActive,
-    ready: sitesReady && membersReady,
+    ready: statusReady && sitesReady && membersReady,
     identity,
+    initialized: status[0]?.initialized ?? false,
+    sandbox: status[0]?.sandbox ?? false,
     me: members.find(member => member.identity.toLowerCase() === identity),
     sites: [...sites].sort((a, b) => a.id - b.id),
     members,
-    inventory: [...inventory].sort((a, b) => a.label.localeCompare(b.label)),
+    inventory: [...inventory].sort((a, b) => a.label.localeCompare(b.label) || a.siteId - b.siteId),
     stockEvents: [...stockEvents].sort((a, b) => b.id - a.id),
     shortages,
     sync: syncStates[0],
@@ -34,15 +49,27 @@ export function useSupply() {
     forecasts: new Map(forecasts.map(row => [row.key, row])),
     proposals: [...proposals].sort((a, b) => b.createdAt.microsSinceUnixEpoch > a.createdAt.microsSinceUnixEpoch ? 1 : -1),
     activity: [...activity].sort((a, b) => b.id - a.id),
-  }), [connection.isActive, sitesReady, membersReady, identity, sites, members, inventory,
-    stockEvents, shortages, syncStates, transfers, forecasts, proposals, activity]);
+    config: configs[0],
+    workers: [...workers].sort((a, b) => a.name.localeCompare(b.name)),
+    leases: [...leases].sort((a, b) => a.resource.localeCompare(b.resource)),
+    agentRuns: [...agentRuns].sort((a, b) => b.id - a.id),
+    agentSteps: [...agentSteps].sort((a, b) => a.id - b.id),
+    matches,
+    metrics: [...metrics].sort((a, b) => a.siteId - b.siteId),
+  }), [connection.isActive, statusReady, sitesReady, membersReady, identity, status, sites, members, inventory, stockEvents,
+    shortages, syncStates, transfers, forecasts, proposals, activity, configs, workers, leases, agentRuns, agentSteps, matches, metrics]);
 }
+
+export type SupplyState = ReturnType<typeof useSupply>;
 
 export function useActions() {
   return {
     bootstrapNetwork: useReducer(reducers.bootstrapNetwork),
+    claimSandboxAdmin: useReducer(reducers.claimSandboxAdmin),
     createSite: useReducer(reducers.createSite),
     grantMember: useReducer(reducers.grantMember),
+    revokeMember: useReducer(reducers.revokeMember),
+    setNetworkConfig: useReducer(reducers.setNetworkConfig),
     upsertInventory: useReducer(reducers.upsertInventory),
     recordStock: useReducer(reducers.recordStock),
     createTransfer: useReducer(reducers.createTransfer),
@@ -52,11 +79,13 @@ export function useActions() {
     cancelTransfer: useReducer(reducers.cancelTransfer),
     acceptProposal: useReducer(reducers.acceptProposal),
     dismissProposal: useReducer(reducers.dismissProposal),
+    acceptMatch: useReducer(reducers.acceptMatch),
+    dismissMatch: useReducer(reducers.dismissMatch),
+    requestAgentRun: useReducer(reducers.requestAgentRun),
     beginFdaSync: useReducer(reducers.beginFdaSync),
     importFdaBatch: useReducer(reducers.importFdaBatch),
     finishFdaSync: useReducer(reducers.finishFdaSync),
   };
 }
 
-export type SupplyState = ReturnType<typeof useSupply>;
 export type SupplyActions = ReturnType<typeof useActions>;

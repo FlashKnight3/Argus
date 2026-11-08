@@ -19,6 +19,45 @@ export const Activity = __t.object("Activity", {
 });
 export type Activity = __Infer<typeof Activity>;
 
+export const ActivityView = __t.object("ActivityView", {});
+export type ActivityView = __Infer<typeof ActivityView>;
+
+export const AgentRun = __t.object("AgentRun", {
+  id: __t.u32(),
+  trigger: __t.string(),
+  requestedBy: __t.string(),
+  note: __t.string(),
+  status: __t.string(),
+  mode: __t.string(),
+  workerId: __t.string(),
+  attempts: __t.u32(),
+  summary: __t.string(),
+  proposals: __t.u32(),
+  matches: __t.u32(),
+  createdAt: __t.timestamp(),
+  finishedAtMicros: __t.i64(),
+});
+export type AgentRun = __Infer<typeof AgentRun>;
+
+export const AgentRunView = __t.object("AgentRunView", {});
+export type AgentRunView = __Infer<typeof AgentRunView>;
+
+export const AgentStep = __t.object("AgentStep", {
+  id: __t.u32(),
+  runId: __t.u32(),
+  kind: __t.string(),
+  tool: __t.string(),
+  content: __t.string(),
+  at: __t.timestamp(),
+});
+export type AgentStep = __Infer<typeof AgentStep>;
+
+export const AgentStepView = __t.object("AgentStepView", {});
+export type AgentStepView = __Infer<typeof AgentStepView>;
+
+export const ConfigView = __t.object("ConfigView", {});
+export type ConfigView = __Infer<typeof ConfigView>;
+
 export const Forecast = __t.object("Forecast", {
   key: __t.string(),
   inventoryRevision: __t.u32(),
@@ -29,8 +68,17 @@ export const Forecast = __t.object("Forecast", {
   daysP90: __t.f64(),
   risk: __t.string(),
   explanation: __t.string(),
+  pStockout: __t.f64(),
+  horizonDays: __t.f64(),
+  fdaAdjusted: __t.bool(),
+  pooled: __t.bool(),
+  workerId: __t.string(),
+  leaseEpoch: __t.u64(),
 });
 export type Forecast = __Infer<typeof Forecast>;
+
+export const ForecastView = __t.object("ForecastView", {});
+export type ForecastView = __Infer<typeof ForecastView>;
 
 export const Inventory = __t.object("Inventory", {
   key: __t.string(),
@@ -45,8 +93,39 @@ export const Inventory = __t.object("Inventory", {
   shortageKey: __t.string(),
   revision: __t.u32(),
   updatedAt: __t.timestamp(),
+  leadTimeDays: __t.f64(),
 });
 export type Inventory = __Infer<typeof Inventory>;
+
+export const InventoryView = __t.object("InventoryView", {});
+export type InventoryView = __Infer<typeof InventoryView>;
+
+export const Lease = __t.object("Lease", {
+  resource: __t.string(),
+  holder: __t.string(),
+  epoch: __t.u64(),
+  expiresAtMicros: __t.i64(),
+  acquiredAtMicros: __t.i64(),
+});
+export type Lease = __Infer<typeof Lease>;
+
+export const LeaseView = __t.object("LeaseView", {});
+export type LeaseView = __Infer<typeof LeaseView>;
+
+export const MatchSuggestion = __t.object("MatchSuggestion", {
+  key: __t.string(),
+  inventoryKey: __t.string(),
+  shortageKey: __t.string(),
+  confidence: __t.f64(),
+  rationale: __t.string(),
+  status: __t.string(),
+  runId: __t.u32(),
+  createdAt: __t.timestamp(),
+});
+export type MatchSuggestion = __Infer<typeof MatchSuggestion>;
+
+export const MatchView = __t.object("MatchView", {});
+export type MatchView = __Infer<typeof MatchView>;
 
 export const Member = __t.object("Member", {
   identity: __t.string(),
@@ -57,6 +136,51 @@ export const Member = __t.object("Member", {
 });
 export type Member = __Infer<typeof Member>;
 
+export const MemberView = __t.object("MemberView", {});
+export type MemberView = __Infer<typeof MemberView>;
+
+export const MetricView = __t.object("MetricView", {});
+export type MetricView = __Infer<typeof MetricView>;
+
+export const ModelMetric = __t.object("ModelMetric", {
+  key: __t.string(),
+  siteId: __t.u32(),
+  itemsEvaluated: __t.u32(),
+  windows: __t.u32(),
+  coverage80: __t.f64(),
+  meanAbsError: __t.f64(),
+  bias: __t.f64(),
+  workerId: __t.string(),
+  computedAt: __t.timestamp(),
+});
+export type ModelMetric = __Infer<typeof ModelMetric>;
+
+export const NetworkConfig = __t.object("NetworkConfig", {
+  id: __t.u32(),
+  sandbox: __t.bool(),
+  reservationTtlHours: __t.f64(),
+  agentAutoRun: __t.bool(),
+});
+export type NetworkConfig = __Infer<typeof NetworkConfig>;
+
+export const NetworkStatus = __t.object("NetworkStatus", {});
+export type NetworkStatus = __Infer<typeof NetworkStatus>;
+
+export const NetworkStatusRow = __t.object("NetworkStatusRow", {
+  id: __t.u32(),
+  initialized: __t.bool(),
+  sandbox: __t.bool(),
+});
+export type NetworkStatusRow = __Infer<typeof NetworkStatusRow>;
+
+export const OpReceipt = __t.object("OpReceipt", {
+  opId: __t.string(),
+  actor: __t.string(),
+  reducer: __t.string(),
+  atMicros: __t.i64(),
+});
+export type OpReceipt = __Infer<typeof OpReceipt>;
+
 export const Proposal = __t.object("Proposal", {
   key: __t.string(),
   sourceSiteId: __t.u32(),
@@ -66,8 +190,12 @@ export const Proposal = __t.object("Proposal", {
   reason: __t.string(),
   status: __t.string(),
   createdAt: __t.timestamp(),
+  runId: __t.u32(),
 });
 export type Proposal = __Infer<typeof Proposal>;
+
+export const ProposalView = __t.object("ProposalView", {});
+export type ProposalView = __Infer<typeof ProposalView>;
 
 export const Shortage = __t.object("Shortage", {
   key: __t.string(),
@@ -96,6 +224,9 @@ export const Site = __t.object("Site", {
 });
 export type Site = __Infer<typeof Site>;
 
+export const SiteView = __t.object("SiteView", {});
+export type SiteView = __Infer<typeof SiteView>;
+
 export const StockEvent = __t.object("StockEvent", {
   id: __t.u32(),
   inventoryKey: __t.string(),
@@ -106,6 +237,15 @@ export const StockEvent = __t.object("StockEvent", {
   at: __t.timestamp(),
 });
 export type StockEvent = __Infer<typeof StockEvent>;
+
+export const StockEventView = __t.object("StockEventView", {});
+export type StockEventView = __Infer<typeof StockEventView>;
+
+export const SweepJob = __t.object("SweepJob", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+});
+export type SweepJob = __Infer<typeof SweepJob>;
 
 export const SyncState = __t.object("SyncState", {
   id: __t.u32(),
@@ -130,6 +270,24 @@ export const Transfer = __t.object("Transfer", {
   approvedBy: __t.string(),
   createdAt: __t.timestamp(),
   updatedAt: __t.timestamp(),
+  reservedAtMicros: __t.i64(),
 });
 export type Transfer = __Infer<typeof Transfer>;
+
+export const TransferView = __t.object("TransferView", {});
+export type TransferView = __Infer<typeof TransferView>;
+
+export const Worker = __t.object("Worker", {
+  id: __t.string(),
+  identity: __t.string(),
+  name: __t.string(),
+  version: __t.string(),
+  status: __t.string(),
+  startedAt: __t.timestamp(),
+  lastSeenMicros: __t.i64(),
+});
+export type Worker = __Infer<typeof Worker>;
+
+export const WorkerView = __t.object("WorkerView", {});
+export type WorkerView = __Infer<typeof WorkerView>;
 

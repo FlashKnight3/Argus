@@ -3,26 +3,57 @@
 ## Routine checks
 
 ```bash
+npm run typecheck   # module, web, and agent
+npm test            # agent unit tests (25) + web tests (2)
 npm run build
-npm run typecheck
-npm test
 ```
 
-The worker unit tests cover stable FDA keys, incomplete pagination rejection, deterministic and ordered forecast percentiles, and the unknown-demand case. The web build runs strict TypeScript and Vite. The SpacetimeDB module is compiled as part of `npm run demo` or `npm run publish:local`.
+**Unit tests** (`agent/test/`):
 
-## Isolated integration run
+- **Model:** pooled priors; zero-usage evidence; deterministic, ordered percentiles; stockout probability falling as stock rises; FDA lead-time stretching; risk classes; and backtest calibration on synthetic Poisson demand.
+- **NDC:** 5-4-2 normalization, local 10-digit layouts, and match ranking.
+- **Planner:** surplus bounds, multi-source fill with shared capacity, blocked routes, and unit mismatch.
+- **Leases:** fair-share assignment, determinism, membership changes, and acquire/release decisions.
+- **FDA ingestion:** stable keys, refusal of incomplete feeds, and dedupe.
+- **Claude loop** (scripted fake client): strict schemas, tool execution, `is_error` rejections, the trace, fallback parameters, and refusal handling.
 
-`worker/tests/integration_local.py` targets a **separate** local database and never writes sample stock into `argus-supply`:
+## End-to-end
 
 ```bash
-bash scripts/publish-supply.sh argus-supply-verify-new
-ARGUS_VERIFY_DB=argus-supply-verify-new python3 worker/tests/integration_local.py
+npm run test:integration   # needs SpacetimeDB on :3000; uses the live FDA feed
 ```
 
-Use a fresh name for each run. The publish script stages the module to avoid root-owned `server/dist` output. The test creates two sample sites in that isolated database, grants a separate service identity, imports the **complete live FDA feed**, computes forecasts, checks an agent draft, verifies the service cannot approve a transfer, then exercises acceptance, reservation, shipment, and receipt. It rejects mismatched units both when requesting and receiving stock. It checks source reservations return to zero and destination count increases by the shipped quantity. Delete only the disposable verification database afterward with `spacetime delete argus-supply-verify-new --server local --yes`.
+This publishes the module to a fresh `argus-supply-verify-<timestamp>` database, runs two real workers in-process, and deletes the database afterwards. It checks, in order:
 
-On 2026-11-07, this end-to-end run passed with **1,581 unique real FDA records** from a feed marked updated 2026-11-06. Counts and statuses will change as the source changes. The test does not validate clinical equivalence or production deployment security.
+1. Base tables are private; views show members everything and outsiders nothing.
+2. Five leases split across two workers.
+3. The full FDA feed is imported exactly once.
+4. Forecasts arrive within seconds of an inventory change; the destination is critical.
+5. A replayed operation ID is applied once.
+6. A stale-revision edit is rejected as a conflict.
+7. A stale epoch or a non-holder write is fenced.
+8. An automatic agent run drafts a transfer within source surplus and suggests the FDA link, with a trace.
+9. The service identity cannot approve stock movements.
+10. Match acceptance and request → reserve → ship → receive work, and the destination count rises.
+11. The linked item is re-forecast with an FDA-stretched lead time.
+12. The scheduled sweep releases an expired reservation.
+13. A killed worker's site lease moves to the survivor at a higher epoch, which resumes forecasting.
 
-## Browser check
+Last run (2026-11-07): all 13 passed; 1,581 FDA records; failover in 10.7 s (epoch 2 → 3).
 
-An isolated local browser walkthrough confirmed network creation, persistence after reload, and overview dashboard rendering. The main `argus-supply` database already had an admin identity during verification, so a new browser correctly reached its Access Pending screen. The isolated browser test used `argus-supply-ui-verify`; no sample stock was added to the main database. The live reducer integration test covers the data flows behind the other screens.
+## Manual checks performed
+
+- **Migration:** the existing `argus-supply` database (2 members, 3 inventory rows, 1 transfer, 1,581 notices) was migrated in place with identical row counts. The migration was first rehearsed on a scratch copy of the previous schema.
+- **Sandbox:** the seeder built 6 real FDA shortage products × 4 synthetic sites with 971 usage events.
+  - The agent drafted 3 transfers (including one to a site whose forecast was pooled) and reported 3 items with no internal source.
+  - It suggested 5 FDA matches (exact 0.97, package-variant 0.75).
+  - Calibration coverage was 93% and 73% at the first two sites.
+- **Freeze test:** `SIGSTOP` on a worker for 16 s marked it offline and moved its 3 leases to the peer. On `SIGCONT` it rejoined and took back a fair share at epoch 3. No errors were logged.
+- **Browser:** sandbox join, Overview, Agent (trace and review queue), System (workers, leases, calibration), and the Inventory detail (stockout meter, pooled badge, match suggestion) all rendered with live data and no app console errors.
+
+## Not covered
+
+- A live Claude API run. The loop is tested only with a scripted client, because no API key was available while it was built.
+- Browser offline replay through a real disconnect. The server-side idempotency and conflict checks are tested end to end.
+- Load beyond a handful of sites.
+- Clinical validity of the thresholds.

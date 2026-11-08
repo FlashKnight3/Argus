@@ -1,33 +1,52 @@
-# Data sources, inference, and the transfer agent
+# Data, inference, and the agent
 
 ## FDA source
 
-The importer reads the [openFDA drug shortage endpoint](https://api.fda.gov/drug/shortages.json), documented by [openFDA](https://open.fda.gov/apis/drug/drugshortages/). It preserves the source's `package_ndc`, `generic_name`, `company_name`, `presentation`, `dosage_form`, `status`, `related_info`, `update_date`, and first `openfda.rxcui` when supplied. Each completed import stores `meta.last_updated`, count, and completion timestamp. The worker refreshes at most once per 24 hours while it stays running; an admin can sync on demand.
+The `fda` lease holder downloads **every** page of the [openFDA drug shortage endpoint](https://api.fda.gov/drug/shortages.json), checks the declared total, dedupes by a stable hash of package NDC, generic name, company, and presentation, then imports in batches of 200 under one run ID (`begin` → `import` → `finish`). Records missing from a completed run are marked inactive. The feed refreshes every 24 hours; an admin can also sync from the browser. FDA status is a national signal and never proof of local stock.
 
-The FDA dataset is national and public. Its status is **not** proof a particular site has or lacks stock. It may change between pages or be revised later. The importer rejects an incomplete page count. FDA information is not for medical decisions; verify product equivalence and sourcing through approved clinical/pharmacy processes.
+## Inventory provenance
 
-## Local inventory provenance
+In a real network every count, baseline, safety stock, and lead time is entered by a person, and every change is attributed to an identity. In a **sandbox** network (`bootstrap_sandbox`), the seeder creates synthetic sites, stock, and backdated usage (`sandbox_seed_history`, which is refused outside a sandbox), around real current FDA notices. The UI shows a sandbox banner on every page.
 
-Sites enter actual counts, units, a baseline daily use rate, and a safety stock threshold. Every adjustment is timestamped with the actor's SpacetimeDB identity. The current product key uses only numeric NDC digits; the UI keeps the original FDA package NDC in the source record. Different package formats that reduce to the same digits will map to the same local key. A manager should confirm the package before linking. This is an operational quantity ledger, not an ERP purchase/order system.
+## Demand model (`agent/src/model.ts`)
 
-## Forecast model
-
-For each inventory item, the worker reads unreserved stock, the manager's baseline daily use, and recorded `use` events from the past 30 days. It uses a Gamma posterior for a Poisson demand rate:
+Daily demand is Poisson with a Gamma prior on its rate λ:
 
 ```text
-shape = max(0.5, baseline_per_day × 7) + observed_use
-rate  = 7 + observed_days
-sampled_days_of_supply = free_stock / sampled_daily_rate
+prior:      baseline set   → Gamma(max(0.5, 7·baseline), 7)        (7 pseudo-days)
+            no baseline,   → Gamma(max(0.5, 3·pool), 3)            (pooled: mean rate of other sites with the same NDC)
+            other sites
+            usage only     → Gamma(0.5, 1)
+posterior:  shape + units used in the last 30 days,  rate + observed days in that window
 ```
 
-The seven-day prior prevents one or two events from overwhelming a manager's baseline. The worker draws 1,200 deterministic samples per inventory revision and stores the 10th, 50th, and 90th percentile days of supply. `critical` means no free stock or a pessimistic (10th percentile) estimate of at most 7 days; `watch` is at most 21 days; otherwise `stable`. If positive stock exists but neither baseline nor usage exists, risk is `unknown`, with no fabricated demand estimate. These are **demand** intervals only: they do not model lead time, recalls, substitutions, allocation contracts, patient case mix, or shipment reliability. A pharmacist should validate inputs and interpretation.
+With no baseline, no usage, and nothing to pool from, the forecast is `unknown`; no demand is invented. Thirty observed days of *zero* use count as evidence of low demand.
 
-## Bounded agent
+**Stockout before resupply.** For 2,000 deterministic draws: λ ~ posterior; lead time L ~ Gamma with mean = the item's lead time (default 7 days) and CV 0.25; demand D ~ Poisson(λ·L). `p_stockout = P(D > free stock)`. If the item is linked to an FDA record **currently in shortage**, the expected lead time is multiplied by 2.5 and its CV raised to 0.6 (`fda_adjusted`). Days-of-cover p10/p50/p90 come from free / λ.
 
-The worker scans critical destinations with a positive baseline. It calculates a target of the larger of site safety stock and 21 days of baseline use. It considers only a different site with the **same canonical package NDC**, `stable` forecast risk, and free quantity above its own safety stock. It drafts at most one source for that destination product and caps quantity at the deficit and source surplus. Its explanation includes each site's pessimistic days of supply. Existing open transfers suppress drafts for the same destination product.
+**Risk:** `critical` if there's no free stock, `p_stockout ≥ 0.5`, or p10 ≤ 7 days; `watch` if `p_stockout ≥ 0.15` or p10 ≤ 21 days; otherwise `stable`.
 
-A draft cannot move stock. The destination must accept it as a request; the source must reserve and ship; the destination must record receipt. The database rechecks stock at every step. This is a deterministic decision agent with probabilistic demand input, not an autonomous prescribing or purchasing agent. No LLM is required or used.
+**Calibration.** At weekly origins (from day 14 of history onward), the model is refit on data *before* the origin only and predicts the next 7 days of demand (Gamma–Poisson predictive). Each site reports the share of held-out weeks whose actual demand fell inside the predicted 80% interval (target ≈ 80%), plus MAE and bias. Results appear in **System**. On the sandbox's Poisson history, sites came out at 73–93% coverage. Note that the baseline used as the prior is the current one, so backtests are slightly optimistic for items whose baseline was set from later knowledge.
 
-## Future real integrations
+Not modeled: recalls, therapeutic substitution, allocation contracts, case-mix shifts, or delivery reliability beyond the lead-time distribution. A pharmacist should validate inputs and interpretation.
 
-The manual count entry can later be replaced or supplemented with an institution-approved feed from its inventory/ERP system, with per-site credentials, reconciliation, units and package conversion, failure alerts, and conflict handling. Public drug metadata can help normalize names but cannot provide live hospital counts. Do not claim “real-time hospital inventory” until an actual hospital system is connected and validated.
+## Agent
+
+Runs are queued (`manual` from the Agent page, or `auto` when the at-risk picture changes) and executed by whichever worker holds the `agent` lease. Automatic runs fire only after every item has a current forecast, so they never act on half-updated data. They are keyed on the at-risk items and their potential donors, with a 60 s cooldown.
+
+**Deterministic planner** (`agent/src/planner.ts`, always available):
+- **Destinations:** critical or `p_stockout ≥ 0.5` items with known demand, most urgent first. Each is targeted at max(safety stock, 21 days of demand).
+- **Sources:** same canonical NDC and unit at another site, `stable` risk, and giveable `free − max(safety, 21 days of own demand)`. Capacity is shared across destinations; several sources can fill one destination.
+- **Skipped:** routes that already have an open transfer or a pending draft.
+- **Reported:** at-risk items with no internal source are listed for external sourcing.
+- **FDA matches** (`agent/src/ndc.ts`): an exact package NDC (local 10-digit codes are tried in all three 11-digit layouts) scores 0.97; the same labeler and product code with a different package size scores 0.75; an identical product name with a different NDC scores 0.5.
+
+**Claude** (`agent/src/llm.ts`, used when `ANTHROPIC_API_KEY` is set):
+- **Model and loop:** `claude-opus-5-5`, effort `medium` (set with `ARGUS_AGENT_EFFORT`), and a manual tool loop with strict schemas.
+- **Tools:** `get_network_overview`, `get_item_detail`, `search_fda`, `propose_transfer`, and `suggest_fda_match`.
+- **Hard limits:** the tools enforce the same limits as the planner (a quantity above the source's `max_give` comes back as a tool error), and the database checks again.
+- **Refusals:** server-side refusal fallbacks are on (`fallbacks: "default"`); a refusal ends the run with no drafts.
+- **Failures:** if the API fails, the run logs the error and falls back to the deterministic planner.
+- **Trace:** every plan, reasoning note, tool call, result, and summary is stored in `agent_step` and shown on the Agent page.
+
+Neither path can reserve, ship, or receive stock. People accept a draft as a request, the source reserves and ships, and the destination confirms receipt.

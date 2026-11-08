@@ -22,6 +22,10 @@ export function number(value: number, digits = 0) {
   return Number.isFinite(value) ? value.toLocaleString(undefined, { maximumFractionDigits: digits }) : '—';
 }
 
+export function percent(value: number) {
+  return Number.isFinite(value) ? `${Math.round(value * 100)}%` : '—';
+}
+
 export function date(value: { microsSinceUnixEpoch: bigint } | undefined) {
   if (!value) return '—';
   const n = Number(value.microsSinceUnixEpoch / 1000n);

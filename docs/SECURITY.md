@@ -2,20 +2,29 @@
 
 ## What is enforced
 
-The module checks SpacetimeDB caller identities inside every mutation reducer. The first caller can create a new network and becomes admin. Admins add sites and grant roles. Managers may adjust their assigned site's counts and act on its transfers. Viewers have read-only UI. The service worker can import FDA records and write forecasts/drafts; it cannot reserve, ship, receive, or cancel stock. Counts are validated against reservations and every transition is logged.
+- **Writes.** Every reducer checks the caller's SpacetimeDB identity and role:
+  - The first caller creates the network and becomes admin.
+  - Admins manage sites, grants, revocations, and policies.
+  - Managers act on their own site; viewers are read-only.
+  - Service workers may import FDA records, write forecasts and metrics, and draft proposals and matches, and only while holding the matching lease at the current epoch.
+  - No service or agent path can reserve, ship, receive, or cancel stock.
+- **Reads.** Operational tables are private. Members read through views that return rows only when the caller is a member. Non-members see only the public FDA feed, `sync_state`, and `network_status`. An integration test checks that an outsider gets nothing from the views and can't query private tables.
+- **Integrity.** Writes are idempotent by operation ID; inventory edits are revision-checked; forecast writes are revision-checked and fenced.
+- **Sandbox isolation.** Self-service admin claims and synthetic history backfill are refused unless the network was created with `bootstrap_sandbox`. The seeder refuses database names without "sandbox".
 
 ## What is not enforced
 
-**Read confidentiality is not provided by this version.** Its tables are public to SpacetimeDB clients so the React app can subscribe to live state. A modified client may query the tables even if the UI shows Access Pending. UI gating is not a data access control. The first-connected-caller bootstrap pattern also assumes a trusted local setup process; do not expose an empty database to untrusted clients. SpacetimeDB local server starts on all interfaces by default, and the Vite development server is not a hardened web server.
+- All members can read the whole network, including other sites' stock, because cross-site coordination depends on it. There is no per-site read isolation.
+- Bootstrap trusts the first caller. Don't expose an empty database to untrusted clients.
+- The SpacetimeDB local server listens on all interfaces, and Vite is a development server. Neither should be reachable from the internet.
+- With the Claude agent enabled, network summaries (product names, NDCs, quantities, site names) are sent to the Anthropic API. Use rules mode (`ARGUS_AGENT_MODE=rules`) if that isn't acceptable.
+- The activity log is not tamper-proof against the database owner.
 
-Therefore, use only non-patient, non-sensitive operational test data on a trusted local network. Do not enter PHI, patient names, prescription details, confidential purchasing terms, or production facility inventory. Do not expose ports 3000 or 5173 to the public internet. The FDA feed itself is public, but local stock may be sensitive in a real facility.
+Use only non-patient, non-sensitive test data. Don't enter PHI, prescription details, or confidential purchasing terms.
 
 ## Before any hospital deployment
 
-1. Move operational tables to private storage and expose authorization-filtered [SpacetimeDB views](https://spacetimedb.com/docs/functions/views/) or another server-side access layer. Verify cross-site read policy and prevent direct SQL disclosure. Experimental RLS is not used here.
-2. Add institution-managed authentication, identity lifecycle/revocation, per-site tenancy, and service credential rotation. Persist browser tokens only under an approved storage policy.
-3. Serve browser and database over TLS behind an authenticated gateway with network isolation. Restrict bind addresses and firewall rules.
-4. Add consistent backups, restore drills, high-availability design, monitoring, alerting, retention, and an external append-only audit trail.
-5. Validate NDC/package matching, units, transfer workflow, model thresholds, and FDA feed use with pharmacists, security, legal, and compliance teams. Perform a threat model and penetration test.
-
-This checklist is a deployment boundary, not a claim that the current app satisfies clinical, privacy, or regulatory requirements.
+1. Institution-managed authentication, identity lifecycle, per-site read policy, and rotation of the service credential.
+2. TLS and an authenticated gateway, network isolation, and restricted bind addresses.
+3. Database backups, restore drills, replication or high availability, monitoring, and an external append-only audit trail.
+4. Pharmacist, security, legal, and compliance review of NDC matching, units, model thresholds, agent behavior, and data sent to external APIs, plus a threat model and penetration test.

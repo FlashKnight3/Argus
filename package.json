@@ -2,23 +2,26 @@
   "name": "argus",
   "private": true,
   "version": "0.1.0",
-  "description": "Argus Supply Network: FDA shortage signals and multi-site inventory coordination on SpacetimeDB.",
+  "description": "Argus Supply Network: FDA shortage signals, leased agent workers, and multi-site inventory coordination on SpacetimeDB.",
   "type": "module",
   "workspaces": [
     "server",
-    "web"
+    "web",
+    "agent"
   ],
   "scripts": {
     "dev": "npm --workspace web run dev",
     "build": "npm --workspace web run build",
-    "test": "python3 -m unittest discover -s worker/tests -v && npm --workspace web run test",
-    "typecheck": "npm --workspace server run typecheck && npm --workspace web run typecheck",
+    "test": "npm --workspace agent run test && npm --workspace web run test",
+    "test:integration": "bash scripts/test-integration.sh",
+    "typecheck": "npm --workspace server run typecheck && npm --workspace web run typecheck && npm --workspace agent run typecheck",
     "publish:local": "npm --workspace server run publish:local",
     "generate": "npm --workspace server run generate",
     "demo": "bash scripts/start-demo.sh",
-    "worker": "python3 worker/argus_supply.py",
-    "worker:once": "python3 worker/argus_supply.py --once",
-    "worker:identity": "python3 worker/argus_supply.py --identity"
+    "sandbox": "ARGUS_SANDBOX=1 bash scripts/start-demo.sh",
+    "agent": "node --import tsx agent/src/main.ts",
+    "worker:identity": "node --import tsx agent/src/main.ts --identity",
+    "sandbox:seed": "node --import tsx agent/src/seed-sandbox.ts"
   },
   "engines": {
     "node": ">=22"

@@ -1,64 +1,88 @@
 # Argus Supply Network
 
-Argus is a working, local multi-site drug shortage coordination app. It combines the **real FDA drug shortage feed** with **inventory counts entered by a pharmacy team** in SpacetimeDB. It estimates days of supply, drafts possible inter-site transfers, and keeps a human in control of every stock movement.
+Argus is a working, local multi-site drug-shortage coordination system. It combines the **real FDA drug shortage feed** with **inventory counts entered by pharmacy teams**, predicts which sites will run out before resupply, and drafts transfers between sites for people to approve. It is built on three ideas:
 
-The app has five focused screens: Overview, Inventory, Transfers, FDA watch, and Network. It starts with **zero invented inventory**. This is an operations prototype for non-patient data, not a clinical decision system or a production hospital deployment.
+- **Distributed:** a pool of agent workers shares the network through leased, fenced work assignments with automatic failover, and browsers keep working offline with idempotent replay.
+- **Inference:** a Gamma–Poisson demand model gives a *probability of stocking out before resupply*. It stretches lead times for items in an active FDA shortage, pools priors across sites, and checks its own calibration with rolling backtests.
+- **Agentic:** a planning agent (Claude, with a deterministic fallback) reads the whole network through tools, drafts multi-source transfers within hard surplus limits, and suggests FDA links. Every step is traced. It cannot move stock.
+
+The app never invents inventory in a real network. A separate, clearly labeled **sandbox** network shows the full system with synthetic data built around real FDA notices. This is an operations prototype for non-patient data, not a clinical decision system or production hospital deployment.
 
 ## Run it
 
-Prerequisites: Node.js 22+, Python 3.10+, SpacetimeDB CLI 2.14.1, and internet access to `api.fda.gov` for FDA updates. From this repository:
+Prerequisites: Node.js 22+, SpacetimeDB CLI 2.14.1, and internet access to `api.fda.gov`.
 
 ```bash
 npm ci
-npm run demo
+npm run sandbox   # synthetic sites + real FDA notices: see everything working in a minute
+npm run demo      # your real network (argus-supply): starts empty, you enter counts
 ```
 
-The script starts or reuses local SpacetimeDB on port 3000, safely publishes database `argus-supply` without deleting data, starts the Python worker, and serves the web app on the first free port from 5173. Read the URL and **worker identity** printed in the terminal. Existing `argus` data from the former project is untouched.
+Each command starts or reuses SpacetimeDB on port 3000, publishes its database without deleting data, starts **two agent workers** (`ARGUS_WORKERS=N` for more), and serves the dashboard on the first free port from 5173.
 
-1. Open the printed dashboard URL. If the network is new, enter your name and first site to become its admin. If it already exists, ask its admin to grant your browser identity.
-2. Open **Network**. Add sites and grant the printed worker identity the **service** role. The worker then imports the complete FDA feed and runs the forecast/transfer agent. An admin can also use **FDA watch → Sync FDA now**.
-3. In **Inventory**, enter a real package NDC, product name, counted on-hand quantity, unit, typical daily use, and safety stock. FDA matches require an exact package NDC or explicit confirmation.
-4. Record usage and receipts. The worker recomputes estimates from the count, baseline, and recorded usage.
-5. In **Transfers**, review agent drafts or create a request. The destination requests; the source reserves and ships; the destination confirms receipt.
+- **Sandbox:** open the URL, click **Join sandbox as admin**, and data appears as the seeder finishes.
+- **Real network:** create the network (you become admin), then click **Activate FDA worker**. Add sites in **Network** and real counts in **Inventory**.
 
-Run `npm run worker:identity` to print the persisted service identity again. The worker token is stored at `.argus-supply/service.json`, ignored by Git. Keep it private. `npm run worker:once` runs one cycle; `npm run worker` runs continuously. `npm run build`, `npm run typecheck`, and `npm test` check the web app and worker. The launch script writes per-run logs under `logs/`.
+**Try failover:** kill one worker's PID (printed at startup) and watch **System → Leases** move to the survivor within about 10 s, each with a new epoch.
+
+**Claude agent:** with `ANTHROPIC_API_KEY` set, the agent runs on `claude-opus-5-5` with server-side refusal fallbacks enabled (`fallbacks: "default"`). Without a key it uses the deterministic planner. Set `ARGUS_AGENT_MODE=rules|llm|auto` to choose.
+
+**Checks:**
+
+```bash
+npm run typecheck
+npm test                  # unit tests
+npm run build
+npm run test:integration  # end-to-end on a disposable DB
+```
+
+The integration test needs SpacetimeDB running.
+
+## Screens
+
+| Screen | What it shows |
+|---|---|
+| Overview | At-risk items ranked by stockout probability, agent drafts, latest agent run, worker health, calibration |
+| Inventory | Counts, lead times, stockout meter, FDA-adjusted and pooled flags, agent FDA-match suggestions to link or dismiss |
+| Transfers | Request → reserve → ship → receive; agent drafts tagged by run; automatic release of stale reservations |
+| Agent | Run history, full step-by-step trace (plan, tool calls, results, summary), manual runs with an optional focus, pharmacist review queue |
+| FDA watch | The public feed with source dates and package NDCs; "Track at a site" |
+| Network | Sites, members, grants, and revocation |
+| System | Worker pool, leases with fencing epochs and expiry, calibration per site, this browser's offline queue, coordination log, policies |
 
 ## What is real
 
 | Information | Source | Meaning |
 |---|---|---|
-| FDA notices | [openFDA drug shortage API](https://open.fda.gov/apis/drug/drugshortages/) | Public national supply signal, with source update date, status, company, presentation, NDC, and optional RxCUI |
-| On-hand inventory | A site manager's count | Operational stock recorded in the SpacetimeDB ledger; never inferred from the FDA feed |
-| Usage | Recorded stock movements and manager baseline | Input to the demand estimate |
-| Forecast | Python Gamma-Poisson model | Demand uncertainty around days of unreserved stock; not a delivery promise |
-| Transfer draft | Bounded agent rule | A reviewable suggestion when one site is critical and another has surplus |
-| Transfer state | Human actions in SpacetimeDB reducers | The authoritative request, reservation, shipment, and receipt ledger |
-
-There is no public API for a hospital's live shelf count. A hospital must provide that through an approved inventory integration or through the manual entry workflow here. Public FDA data cannot substitute for local stock. Package NDC matching also needs human review for changes in package, strength, or formulary item.
+| FDA notices | [openFDA drug shortage API](https://open.fda.gov/apis/drug/drugshortages/) | National supply signal; never treated as local stock |
+| On-hand inventory | A site manager's count (real network) or the seeder (sandbox only) | The ledger in SpacetimeDB |
+| Forecast | Gamma–Poisson posterior and resupply simulation | Demand and resupply uncertainty, not a delivery promise |
+| Transfer drafts / FDA matches | Agent run (Claude or deterministic) | Suggestions only; a person decides |
+| Transfer state | Human reducer calls | The authoritative request, reservation, shipment, and receipt ledger |
 
 ## System at a glance
 
 ```mermaid
 flowchart LR
-  FDA[openFDA shortage API] --> W[Python worker]
-  W -- import / forecast / draft --> DB[(SpacetimeDB)]
-  Browser[React operations UI] <-- live subscriptions --> DB
-  Browser -- approved reducers --> DB
-  DB --> Ledger[Stock events + transfer + activity ledger]
+  FDA[openFDA] --> W1[Agent worker A]
+  FDA --> W2[Agent worker B]
+  W1 <-- live subscription + fenced writes --> DB[(SpacetimeDB)]
+  W2 <-- live subscription + fenced writes --> DB
+  C[Claude API] <-. tool loop .-> W1
+  Browser[React UI + offline queue] <-- views + idempotent reducers --> DB
+  DB --> Sweep[scheduled sweep: lease expiry, failover, reservation TTL]
 ```
 
-SpacetimeDB is the **single authoritative state machine**. Reducers atomically enforce roles and inventory invariants. Browser clients subscribe over WebSocket; the worker uses HTTP SQL and reducer calls under a separate service identity. The worker may import public notices and write derived forecasts/drafts. It cannot approve, ship, or receive stock. Transfer approval reserves quantity before it is deducted on shipment, preventing two managers from allocating the same free units. Forecast writes include the inventory revision and are rejected if their input became stale.
-
-The running app loads `web/src/supply`, the generated bindings in `web/src/supply_bindings`, the module in `server/src/index.ts`, and `worker/argus_supply.py`.
+The code is in `server/src/index.ts` (module), `agent/src` (workers, model, planner, Claude loop, sandbox seeder), `web/src/supply` (UI), and `web/src/supply_bindings` (generated; run `npm run generate` after schema changes).
 
 ## Documentation
 
 - [Architecture and distributed systems](docs/ARCHITECTURE.md)
-- [Data sources, model, and agent](docs/DATA_AND_INFERENCE.md)
+- [Data, inference, and the agent](docs/DATA_AND_INFERENCE.md)
 - [Operations and troubleshooting](docs/OPERATIONS.md)
-- [Security and deployment boundary](docs/SECURITY.md)
-- [Verification and test procedure](docs/TESTING.md)
+- [Security boundary](docs/SECURITY.md)
+- [Verification](docs/TESTING.md)
 
 ## Important boundary
 
-This app has functioning local data flows and real FDA data, but it is **not ready for a hospital production network**. Public SpacetimeDB tables can be queried by connected clients; UI role gating does not provide confidential read access. No patient information, controlled credentials, or sensitive facility data should be entered. Production use needs server-side visibility controls, institution identity integration, TLS, backups, monitored hosting, audit retention, and clinical/operational validation. See [Security](docs/SECURITY.md).
+Read access is restricted to network members through views, but this is still a local prototype. It has no institutional sign-in, TLS, backups, or high availability for the database itself. Do not enter patient information or confidential facility data. See [Security](docs/SECURITY.md).

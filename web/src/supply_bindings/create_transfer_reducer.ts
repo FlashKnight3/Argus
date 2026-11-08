@@ -11,6 +11,7 @@ import {
 } from "spacetimedb";
 
 export default {
+  opId: __t.string(),
   sourceSiteId: __t.u32(),
   destSiteId: __t.u32(),
   packageNdc: __t.string(),

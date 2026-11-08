@@ -10,13 +10,8 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-export default __t.row({
-  key: __t.string().primaryKey(),
-  sourceSiteId: __t.u32().name("source_site_id"),
-  destSiteId: __t.u32().name("dest_site_id"),
-  ndc: __t.string(),
-  quantity: __t.f64(),
-  reason: __t.string(),
-  status: __t.string(),
-  createdAt: __t.timestamp().name("created_at"),
-});
+export default {
+  workerId: __t.string(),
+  name: __t.string(),
+  version: __t.string(),
+};

@@ -11,13 +11,8 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
-  key: __t.string().primaryKey(),
-  inventoryRevision: __t.u32().name("inventory_revision"),
-  computedAt: __t.timestamp().name("computed_at"),
-  ratePerDay: __t.f64().name("rate_per_day"),
-  daysP10: __t.f64().name("days_p_10"),
-  daysMedian: __t.f64().name("days_median"),
-  daysP90: __t.f64().name("days_p_90"),
-  risk: __t.string(),
-  explanation: __t.string(),
+  id: __t.u32().primaryKey(),
+  sandbox: __t.bool(),
+  reservationTtlHours: __t.f64().name("reservation_ttl_hours"),
+  agentAutoRun: __t.bool().name("agent_auto_run"),
 });

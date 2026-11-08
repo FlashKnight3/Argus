@@ -73,12 +73,13 @@ export async function syncFda(actions: SupplyActions, progress: (message: string
   const rows = await Promise.all(raw.map(normalize));
   const unique = [...new Map(rows.map(row => [row.key, row])).values()];
   const runId = `${new Date().toISOString()}-browser`;
-  await actions.beginFdaSync({ runId });
-  for (let i = 0; i < unique.length; i += 100) {
-    await actions.importFdaBatch({ runId, rowsJson: JSON.stringify(unique.slice(i, i + 100)) });
-    progress(`Imported ${Math.min(i + 100, unique.length)} of ${unique.length} records…`);
+  const lease = { workerId: '', leaseEpoch: 0n };
+  await actions.beginFdaSync({ runId, ...lease });
+  for (let i = 0; i < unique.length; i += 200) {
+    await actions.importFdaBatch({ runId, rowsJson: JSON.stringify(unique.slice(i, i + 200)), ...lease });
+    progress(`Imported ${Math.min(i + 200, unique.length)} of ${unique.length} records…`);
   }
-  await actions.finishFdaSync({ runId, feedDate });
+  await actions.finishFdaSync({ runId, feedDate, ...lease });
   progress(`FDA feed current through ${feedDate}.`);
   return unique.length;
 }

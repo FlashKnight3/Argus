@@ -11,6 +11,7 @@ import {
 } from "spacetimedb";
 
 export default {
+  opId: __t.string(),
   siteId: __t.u32(),
   packageNdc: __t.string(),
   label: __t.string(),
@@ -18,5 +19,7 @@ export default {
   onHand: __t.f64(),
   baselineDaily: __t.f64(),
   safetyStock: __t.f64(),
+  leadTimeDays: __t.f64(),
   shortageKey: __t.string(),
+  expectedRevision: __t.u32(),
 };

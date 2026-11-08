@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ArrowRight, Check, PackageCheck, Plus, Send, Truck, X } from 'lucide-react';
 import { Empty, Panel, Pill, canManage, date, errorText, number, siteName } from './ui';
+import { newOpId, type OfflineQueue } from './offline';
 import type { Notify } from './App';
 import type { SupplyActions, SupplyState, Transfer } from './useSupply';
 
@@ -8,7 +9,7 @@ function statusTone(status: string): 'neutral' | 'good' | 'watch' | 'info' {
   return status === 'received' ? 'good' : status === 'cancelled' ? 'neutral' : status === 'requested' ? 'watch' : 'info';
 }
 
-export function TransfersPage({ state, actions, notify }: { state: SupplyState; actions: SupplyActions; notify: Notify }) {
+export function TransfersPage({ state, actions, queue, notify }: { state: SupplyState; actions: SupplyActions; queue: OfflineQueue; notify: Notify }) {
   const [showForm, setShowForm] = useState(false);
   const [sourceSiteId, setSourceSiteId] = useState(0);
   const [destSiteId, setDestSiteId] = useState(state.me?.role === 'admin' ? 0 : state.me?.siteId ?? 0);
@@ -28,9 +29,14 @@ export function TransfersPage({ state, actions, notify }: { state: SupplyState; 
     finally { setBusy(false); }
   };
   const create = async () => {
-    if (await act(actions.createTransfer({ sourceSiteId, destSiteId, packageNdc: ndc, quantity: Number(quantity), reason }), 'Transfer request created. The source site can reserve it.')) {
+    setBusy(true);
+    try {
+      const outcome = await queue.submit('createTransfer', { opId: newOpId(), sourceSiteId, destSiteId, packageNdc: ndc, quantity: Number(quantity), reason },
+        `Request ${quantity} of NDC ${ndc}`);
+      notify(outcome === 'queued' ? 'Offline: request queued and will be sent on reconnect.' : 'Transfer request created. The source site can reserve it.');
       setShowForm(false); setQuantity(''); setReason('');
-    }
+    } catch (error) { notify(errorText(error), true); }
+    finally { setBusy(false); }
   };
   const actionFor = (row: Transfer) => {
     if (row.status === 'requested' && canManage(state.me, row.sourceSiteId)) return <button className="button primary small" disabled={busy} onClick={() => act(actions.approveTransfer({ transferId: row.id }), `Transfer #${row.id} reserved.`)}><Check size={15}/> Reserve stock</button>;
@@ -39,9 +45,9 @@ export function TransfersPage({ state, actions, notify }: { state: SupplyState; 
     return null;
   };
 
-  return <div className="page-stack"><div className="page-intro"><div><div className="eyebrow">MULTI-SITE COORDINATION</div><h1>Transfers</h1><p>Stock moves through explicit requests, reservations, shipment, and receipt. No agent can approve a transfer.</p></div>{state.me?.role !== 'viewer' && <button className="button primary" onClick={() => setShowForm(true)}><Plus size={16}/> Request stock</button>}</div>
+  return <div className="page-stack"><div className="page-intro"><div><div className="eyebrow">MULTI-SITE COORDINATION</div><h1>Transfers</h1><p>Stock moves through explicit requests, reservations, shipment, and receipt. No agent can approve a transfer.{state.config?.reservationTtlHours ? ` Unshipped reservations are released automatically after ${state.config.reservationTtlHours} h.` : ''}</p></div>{state.me?.role !== 'viewer' && <button className="button primary" onClick={() => setShowForm(true)}><Plus size={16}/> Request stock</button>}</div>
     <div className="transfer-flow"><div><span>01</span><strong>Request</strong><small>Destination asks</small></div><ArrowRight size={18}/><div><span>02</span><strong>Reserve</strong><small>Source confirms</small></div><ArrowRight size={18}/><div><span>03</span><strong>Ship</strong><small>Source releases</small></div><ArrowRight size={18}/><div><span>04</span><strong>Receive</strong><small>Destination counts</small></div></div>
-    {pending.length > 0 && <Panel eyebrow="AGENT / HUMAN REVIEW" title={`${pending.length} transfer draft${pending.length === 1 ? '' : 's'}`}><div className="proposal-grid">{pending.map(item => <div className="proposal-card" key={item.key}><div className="proposal-head"><Pill tone="info">Agent draft</Pill><small>{date(item.createdAt)}</small></div><h3>{number(item.quantity, 1)} units · NDC {item.ndc}</h3><p>{siteName(state.sites, item.sourceSiteId)} <ArrowRight size={14}/> {siteName(state.sites, item.destSiteId)}</p><div className="proposal-reason">{item.reason}</div><div className="proposal-actions">{canManage(state.me, item.destSiteId) ? <><button className="button primary small" disabled={busy} onClick={() => act(actions.acceptProposal({ key: item.key }), 'Draft accepted as a request. Source approval is still required.')}>Create request</button><button className="button ghost small" disabled={busy} onClick={() => act(actions.dismissProposal({ key: item.key }), 'Draft dismissed.')}>Dismiss</button></> : <small>Awaiting destination manager</small>}</div></div>)}</div></Panel>}
+    {pending.length > 0 && <Panel eyebrow="AGENT / HUMAN REVIEW" title={`${pending.length} transfer draft${pending.length === 1 ? '' : 's'}`}><div className="proposal-grid">{pending.map(item => <div className="proposal-card" key={item.key}><div className="proposal-head"><Pill tone="info">Agent draft{item.runId ? ` · run #${item.runId}` : ''}</Pill><small>{date(item.createdAt)}</small></div><h3>{number(item.quantity, 1)} units · NDC {item.ndc}</h3><p>{siteName(state.sites, item.sourceSiteId)} <ArrowRight size={14}/> {siteName(state.sites, item.destSiteId)}</p><div className="proposal-reason">{item.reason}</div><div className="proposal-actions">{canManage(state.me, item.destSiteId) ? <><button className="button primary small" disabled={busy} onClick={() => act(actions.acceptProposal({ key: item.key }), 'Draft accepted as a request. Source approval is still required.')}>Create request</button><button className="button ghost small" disabled={busy} onClick={() => act(actions.dismissProposal({ key: item.key }), 'Draft dismissed.')}>Dismiss</button></> : <small>Awaiting destination manager</small>}</div></div>)}</div></Panel>}
     <Panel eyebrow="OPEN / AUDITABLE" title={`${open.length} active transfers`}>
       {open.length ? <div className="transfer-list">{open.map(row => <div className="transfer-card" key={row.id}><div className="transfer-icon"><Truck size={20}/></div><div className="transfer-main"><div className="transfer-title"><strong>#{row.id} · {row.label}</strong><Pill tone={statusTone(row.status)}>{row.status}</Pill></div><div className="transfer-route">{siteName(state.sites, row.sourceSiteId)} <ArrowRight size={14}/> {siteName(state.sites, row.destSiteId)}</div><small>{number(row.quantity, 1)} units · NDC {row.ndc} · {row.reason || 'No note'} · {date(row.createdAt)}</small></div><div className="transfer-actions">{actionFor(row)}{['requested', 'reserved'].includes(row.status) && (canManage(state.me, row.sourceSiteId) || canManage(state.me, row.destSiteId)) && <button className="icon-button" disabled={busy} title="Cancel transfer" onClick={() => act(actions.cancelTransfer({ transferId: row.id }), `Transfer #${row.id} cancelled.`)}><X size={17}/></button>}</div></div>)}</div> : <Empty title="No active transfers" detail="Create a request or review an agent draft when another site can help." />}
     </Panel>

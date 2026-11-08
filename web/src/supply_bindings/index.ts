@@ -34,97 +34,67 @@ import {
 } from "spacetimedb";
 
 // Import all reducer arg schemas
+import AcceptMatchReducer from "./accept_match_reducer";
 import AcceptProposalReducer from "./accept_proposal_reducer";
+import AcquireLeaseReducer from "./acquire_lease_reducer";
+import AppendAgentStepReducer from "./append_agent_step_reducer";
 import ApproveTransferReducer from "./approve_transfer_reducer";
 import BeginFdaSyncReducer from "./begin_fda_sync_reducer";
 import BootstrapNetworkReducer from "./bootstrap_network_reducer";
+import BootstrapSandboxReducer from "./bootstrap_sandbox_reducer";
 import CancelTransferReducer from "./cancel_transfer_reducer";
+import ClaimAgentRunReducer from "./claim_agent_run_reducer";
+import ClaimSandboxAdminReducer from "./claim_sandbox_admin_reducer";
 import CreateSiteReducer from "./create_site_reducer";
 import CreateTransferReducer from "./create_transfer_reducer";
+import DismissMatchReducer from "./dismiss_match_reducer";
 import DismissProposalReducer from "./dismiss_proposal_reducer";
+import FinishAgentRunReducer from "./finish_agent_run_reducer";
 import FinishFdaSyncReducer from "./finish_fda_sync_reducer";
 import GrantMemberReducer from "./grant_member_reducer";
 import ImportFdaBatchReducer from "./import_fda_batch_reducer";
 import ProposeTransferReducer from "./propose_transfer_reducer";
 import ReceiveTransferReducer from "./receive_transfer_reducer";
 import RecordStockReducer from "./record_stock_reducer";
+import ReleaseLeaseReducer from "./release_lease_reducer";
+import RequestAgentRunReducer from "./request_agent_run_reducer";
+import RequestAutoAgentRunReducer from "./request_auto_agent_run_reducer";
+import RevokeMemberReducer from "./revoke_member_reducer";
+import SandboxSeedHistoryReducer from "./sandbox_seed_history_reducer";
+import SetNetworkConfigReducer from "./set_network_config_reducer";
 import ShipTransferReducer from "./ship_transfer_reducer";
+import SuggestMatchReducer from "./suggest_match_reducer";
 import UpsertInventoryReducer from "./upsert_inventory_reducer";
+import WorkerHeartbeatReducer from "./worker_heartbeat_reducer";
 import WriteForecastReducer from "./write_forecast_reducer";
+import WriteModelMetricReducer from "./write_model_metric_reducer";
 
 // Import all procedure arg schemas
 
 // Import all table schema definitions
-import ActivityRow from "./activity_table";
-import ForecastRow from "./forecast_table";
-import InventoryRow from "./inventory_table";
-import MemberRow from "./member_table";
-import ProposalRow from "./proposal_table";
+import ActivityViewRow from "./activity_view_table";
+import AgentRunViewRow from "./agent_run_view_table";
+import AgentStepViewRow from "./agent_step_view_table";
+import ConfigViewRow from "./config_view_table";
+import ForecastViewRow from "./forecast_view_table";
+import InventoryViewRow from "./inventory_view_table";
+import LeaseViewRow from "./lease_view_table";
+import MatchViewRow from "./match_view_table";
+import MemberViewRow from "./member_view_table";
+import MetricViewRow from "./metric_view_table";
+import NetworkStatusRow from "./network_status_table";
+import ProposalViewRow from "./proposal_view_table";
 import ShortageRow from "./shortage_table";
-import SiteRow from "./site_table";
-import StockEventRow from "./stock_event_table";
+import SiteViewRow from "./site_view_table";
+import StockEventViewRow from "./stock_event_view_table";
 import SyncStateRow from "./sync_state_table";
-import TransferRow from "./transfer_table";
+import TransferViewRow from "./transfer_view_table";
+import WorkerViewRow from "./worker_view_table";
 
 /** Type-only namespace exports for generated type groups. */
 
 /** The schema information for all tables in this module. This is defined the same was as the tables would have been defined in the server. */
 const tablesSchema = __schema({
-  activity: __table({
-    name: 'activity',
-    indexes: [
-      { accessor: 'id', name: 'activity_id_idx_btree', algorithm: 'btree', columns: [
-        'id',
-      ] },
-    ],
-    constraints: [
-      { name: 'activity_id_key', constraint: 'unique', columns: ['id'] },
-    ],
-  }, ActivityRow),
-  forecast: __table({
-    name: 'forecast',
-    indexes: [
-      { accessor: 'key', name: 'forecast_key_idx_btree', algorithm: 'btree', columns: [
-        'key',
-      ] },
-    ],
-    constraints: [
-      { name: 'forecast_key_key', constraint: 'unique', columns: ['key'] },
-    ],
-  }, ForecastRow),
-  inventory: __table({
-    name: 'inventory',
-    indexes: [
-      { accessor: 'key', name: 'inventory_key_idx_btree', algorithm: 'btree', columns: [
-        'key',
-      ] },
-    ],
-    constraints: [
-      { name: 'inventory_key_key', constraint: 'unique', columns: ['key'] },
-    ],
-  }, InventoryRow),
-  member: __table({
-    name: 'member',
-    indexes: [
-      { accessor: 'identity', name: 'member_identity_idx_btree', algorithm: 'btree', columns: [
-        'identity',
-      ] },
-    ],
-    constraints: [
-      { name: 'member_identity_key', constraint: 'unique', columns: ['identity'] },
-    ],
-  }, MemberRow),
-  proposal: __table({
-    name: 'proposal',
-    indexes: [
-      { accessor: 'key', name: 'proposal_key_idx_btree', algorithm: 'btree', columns: [
-        'key',
-      ] },
-    ],
-    constraints: [
-      { name: 'proposal_key_key', constraint: 'unique', columns: ['key'] },
-    ],
-  }, ProposalRow),
   shortage: __table({
     name: 'shortage',
     indexes: [
@@ -136,28 +106,6 @@ const tablesSchema = __schema({
       { name: 'shortage_key_key', constraint: 'unique', columns: ['key'] },
     ],
   }, ShortageRow),
-  site: __table({
-    name: 'site',
-    indexes: [
-      { accessor: 'id', name: 'site_id_idx_btree', algorithm: 'btree', columns: [
-        'id',
-      ] },
-    ],
-    constraints: [
-      { name: 'site_id_key', constraint: 'unique', columns: ['id'] },
-    ],
-  }, SiteRow),
-  stockEvent: __table({
-    name: 'stock_event',
-    indexes: [
-      { accessor: 'id', name: 'stock_event_id_idx_btree', algorithm: 'btree', columns: [
-        'id',
-      ] },
-    ],
-    constraints: [
-      { name: 'stock_event_id_key', constraint: 'unique', columns: ['id'] },
-    ],
-  }, StockEventRow),
   syncState: __table({
     name: 'sync_state',
     indexes: [
@@ -169,38 +117,156 @@ const tablesSchema = __schema({
       { name: 'sync_state_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, SyncStateRow),
-  transfer: __table({
-    name: 'transfer',
+  activityView: __table({
+    name: 'activity_view',
     indexes: [
-      { accessor: 'id', name: 'transfer_id_idx_btree', algorithm: 'btree', columns: [
-        'id',
-      ] },
     ],
     constraints: [
-      { name: 'transfer_id_key', constraint: 'unique', columns: ['id'] },
     ],
-  }, TransferRow),
+  }, ActivityViewRow),
+  agentRunView: __table({
+    name: 'agent_run_view',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, AgentRunViewRow),
+  agentStepView: __table({
+    name: 'agent_step_view',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, AgentStepViewRow),
+  configView: __table({
+    name: 'config_view',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, ConfigViewRow),
+  forecastView: __table({
+    name: 'forecast_view',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, ForecastViewRow),
+  inventoryView: __table({
+    name: 'inventory_view',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, InventoryViewRow),
+  leaseView: __table({
+    name: 'lease_view',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, LeaseViewRow),
+  matchView: __table({
+    name: 'match_view',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MatchViewRow),
+  memberView: __table({
+    name: 'member_view',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MemberViewRow),
+  metricView: __table({
+    name: 'metric_view',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MetricViewRow),
+  networkStatus: __table({
+    name: 'network_status',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, NetworkStatusRow),
+  proposalView: __table({
+    name: 'proposal_view',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, ProposalViewRow),
+  siteView: __table({
+    name: 'site_view',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, SiteViewRow),
+  stockEventView: __table({
+    name: 'stock_event_view',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, StockEventViewRow),
+  transferView: __table({
+    name: 'transfer_view',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, TransferViewRow),
+  workerView: __table({
+    name: 'worker_view',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, WorkerViewRow),
 });
 
 /** The schema information for all reducers in this module. This is defined the same way as the reducers would have been defined in the server, except the body of the reducer is omitted in code generation. */
 const reducersSchema = __reducers(
+  __reducerSchema("accept_match", AcceptMatchReducer),
   __reducerSchema("accept_proposal", AcceptProposalReducer),
+  __reducerSchema("acquire_lease", AcquireLeaseReducer),
+  __reducerSchema("append_agent_step", AppendAgentStepReducer),
   __reducerSchema("approve_transfer", ApproveTransferReducer),
   __reducerSchema("begin_fda_sync", BeginFdaSyncReducer),
   __reducerSchema("bootstrap_network", BootstrapNetworkReducer),
+  __reducerSchema("bootstrap_sandbox", BootstrapSandboxReducer),
   __reducerSchema("cancel_transfer", CancelTransferReducer),
+  __reducerSchema("claim_agent_run", ClaimAgentRunReducer),
+  __reducerSchema("claim_sandbox_admin", ClaimSandboxAdminReducer),
   __reducerSchema("create_site", CreateSiteReducer),
   __reducerSchema("create_transfer", CreateTransferReducer),
+  __reducerSchema("dismiss_match", DismissMatchReducer),
   __reducerSchema("dismiss_proposal", DismissProposalReducer),
+  __reducerSchema("finish_agent_run", FinishAgentRunReducer),
   __reducerSchema("finish_fda_sync", FinishFdaSyncReducer),
   __reducerSchema("grant_member", GrantMemberReducer),
   __reducerSchema("import_fda_batch", ImportFdaBatchReducer),
   __reducerSchema("propose_transfer", ProposeTransferReducer),
   __reducerSchema("receive_transfer", ReceiveTransferReducer),
   __reducerSchema("record_stock", RecordStockReducer),
+  __reducerSchema("release_lease", ReleaseLeaseReducer),
+  __reducerSchema("request_agent_run", RequestAgentRunReducer),
+  __reducerSchema("request_auto_agent_run", RequestAutoAgentRunReducer),
+  __reducerSchema("revoke_member", RevokeMemberReducer),
+  __reducerSchema("sandbox_seed_history", SandboxSeedHistoryReducer),
+  __reducerSchema("set_network_config", SetNetworkConfigReducer),
   __reducerSchema("ship_transfer", ShipTransferReducer),
+  __reducerSchema("suggest_match", SuggestMatchReducer),
   __reducerSchema("upsert_inventory", UpsertInventoryReducer),
+  __reducerSchema("worker_heartbeat", WorkerHeartbeatReducer),
   __reducerSchema("write_forecast", WriteForecastReducer),
+  __reducerSchema("write_model_metric", WriteModelMetricReducer),
 );
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */

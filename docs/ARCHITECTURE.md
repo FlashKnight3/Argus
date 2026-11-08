@@ -4,43 +4,53 @@
 
 | Component | Runtime | Job |
 |---|---|---|
-| `server/src/index.ts` | SpacetimeDB TypeScript module | Authoritative tables, reducers, validation, roles, state transitions |
-| `web/src/supply` | React/Vite browser | Real-time subscriptions, data entry, human review |
-| `web/src/supply_bindings` | Generated SpacetimeDB client | Typed reducer and table interface; regenerate after schema changes |
-| `worker/argus_supply.py` | Python 3 standard library | FDA ingestion, demand inference, bounded transfer drafts |
-| `scripts/start-demo.sh` | Bash | Local startup, safe publish, worker/web process control |
+| `server/src/index.ts` | SpacetimeDB TypeScript module | Private tables, members-only views, reducers (atomic transactions), roles, leases and fencing, scheduled sweep |
+| `agent/src/worker.ts` | Node (one process per worker) | Live subscription; heartbeats; lease reconciliation; forecasts, backtests, FDA import, and agent runs for the leases it holds |
+| `agent/src/{model,planner,ndc,leases,fda,llm}.ts` | Pure TypeScript | Inference, bounded planning, NDC matching, lease assignment, feed ingestion, Claude tool loop |
+| `web/src/supply` | React/Vite | Live views, data entry, offline queue, human review |
+| `scripts/start-demo.sh` | Bash | Local stack: DB, N workers, optional sandbox seeding, web |
 
-## State machine and invariants
+## Ledger state machine
 
-SpacetimeDB holds ten tables: `site`, `member`, `inventory`, `stock_event`, `shortage`, `sync_state`, `transfer`, `forecast`, `proposal`, and `activity`. All writes go through reducers. A reducer runs as an atomic transaction; failure leaves stock and transfer state unchanged.
-
-`inventory.key = site_id + ':' + canonical_digits(package_ndc)` identifies a product at a site. `on_hand` is the counted quantity. `reserved` is approved but unshipped transfer stock. Free stock is `on_hand - reserved`; it cannot become negative through a valid usage or reservation reducer.
+Tables: `site`, `member`, `inventory`, `stock_event`, `shortage`, `sync_state`, `transfer`, `forecast`, `proposal`, `activity`, plus the coordination tables `network_config`, `worker`, `lease`, `sweep_job`, `op_receipt`, `agent_run`, `agent_step`, `match_suggestion`, and `model_metric`.
 
 ```text
 requested → reserved → shipped → received
-      ↘ cancelled  ↙
+      ↘ cancelled  ↙        (reserved → cancelled automatically after the reservation TTL)
 ```
 
-- `create_transfer`: destination manager (or admin) requests; no stock is committed.
-- `approve_transfer`: source manager (or admin) checks free stock and increases `reserved` atomically.
-- `ship_transfer`: source decreases both `on_hand` and `reserved`, and writes a stock event.
-- `receive_transfer`: destination increases its count or creates the product record, then closes the transfer.
-- `cancel_transfer`: allowed only before shipment; a reserved cancellation releases the reservation.
+Free stock is `on_hand − reserved`. Approval reserves atomically; shipping removes on-hand and reserved stock together; receipt adds at the destination. Every quantity change writes a `stock_event`, and every business action writes an `activity` row.
 
-Business actions write an `activity` entry; every quantity change writes a `stock_event`. Per-record FDA imports and forecast recomputations do not emit separate activity rows. For production, an external append-only audit sink and retention policy would be needed. The current activity table is not tamper-proof against a database owner.
+## Work distribution: leases with fencing tokens
 
-## Consistency and concurrency
+Work is partitioned into **resources**: `site:<id>` (forecasts and calibration for that site), `fda` (feed import), and `agent` (planning runs).
 
-The database serializes reducers. Two simultaneous source approvals cannot both reserve the same free units because each reducer checks current `on_hand - reserved` inside its transaction. The browser sees server changes through live subscriptions, so separate sites converge on the committed state. Connectivity loss pauses the UI; there is no offline write queue. The local SpacetimeDB server is one node, not a replicated high-availability cluster.
+1. **Membership.** Each worker calls `worker_heartbeat` every 2 s. The scheduled `sweep` reducer (every 2 s, `sweep_job` table) marks workers silent for over 10 s `offline`.
+2. **Assignment.** Every worker computes the same map from the same view: rendezvous hashing with a fair-share cap of ⌈resources / live workers⌉ (`agent/src/leases.ts`). A worker acquires the resources assigned to it when they're free or expired, and releases those assigned elsewhere. It only hands off between units of work, never mid-run.
+3. **Leases.** `acquire_lease` grants a 10 s lease and **increments its epoch**. Heartbeats renew live leases. The sweep frees expired ones.
+4. **Fencing.** Every worker write (`write_forecast`, `write_model_metric`, FDA import, agent steps, proposals, matches) carries `(workerId, epoch)`. The reducer rejects it unless that worker holds the lease *at that epoch* and it hasn't expired. A worker that was paused, partitioned, or garbage-collected and comes back late cannot overwrite the new owner's results.
+5. **Failover.** When a worker dies or freezes, its leases expire, the survivors' assignment now includes those resources, and they acquire them at a higher epoch. Agent runs left `running` by an offline worker are re-queued (up to 3 attempts). An FDA import interrupted mid-run is restarted by the next `fda` holder.
 
-Inventory `revision` increases on count, usage, receipt, reservation, and shipment. The worker reads a revision with its inputs and sends it with `write_forecast`. The reducer rejects stale forecasts. A retry computes again from fresh state. Proposal keys hash source/destination inventory keys and revisions; this prevents a retry from duplicating a draft for the same state. The agent also avoids drafting while an open transfer already exists for the destination product.
+Measured locally: a killed worker's site lease moved to the survivor in about 10 s (`npm run test:integration`). A worker frozen with `SIGSTOP` lost all its leases to its peer and took back a fair share at a new epoch when resumed.
 
-## FDA import protocol
+## Event-driven processing
 
-The worker first downloads **all** openFDA pages, checking the declared total and source update date. It then starts a run (`begin_fda_sync`), imports batches of at most 100 (`import_fda_batch`), and commits the snapshot (`finish_fda_sync`). Each source row has a stable hash of package NDC, generic name, company, and presentation, so replaying a batch updates the same row. On a completed run, records not present in the new feed are marked inactive. A failed partial run leaves the last completed feed date in the table, with `sync_state.status` still `running`; some row values may already have changed. A production connector should stage an entire snapshot privately and swap it atomically.
+Workers subscribe to every view over WebSocket and react to inserts and deletes (debounced 200 ms) instead of polling. A forecast is recomputed when the item's revision, FDA status, pooled prior, day, or lease epoch changes, and at least every 10 minutes. Stale input is also rejected by revision: `write_forecast` requires the inventory revision the forecast was computed from.
 
-The browser admin can trigger the same bounded import flow as a fallback. Only admins/service identities may call the import reducers. The worker's service role cannot call human transfer reducers.
+## Human writes: idempotency, offline queue, conflicts
 
-## Operational boundaries
+`upsert_inventory`, `record_stock`, and `create_transfer` take a client **operation ID**. The first application stores an `op_receipt` (kept 7 days); a replay with the same ID is a no-op. The browser (`web/src/supply/offline.ts`):
 
-This is a functional **single-server distributed application**: multiple browsers and a separate worker coordinate through one transactional database and live subscriptions. It demonstrates state ownership, optimistic version checks, role-scoped write paths, idempotent ingestion, bounded agent outputs, and explicit human approval. It does not claim cross-region consensus, durable message queues, offline conflict resolution, or hospital-grade availability.
+- queues these writes in `localStorage` when disconnected, or when a call isn't acknowledged within 8 s (outcome unknown);
+- replays them in order on reconnect, so "retry until acknowledged" is safe;
+- moves any write the server rejects on replay into a visible **conflict** list.
+
+Inventory edits carry `expectedRevision`, the revision the person was looking at. If someone else changed the item first, the edit is rejected with a conflict instead of silently overwriting their count.
+
+## Read access
+
+Base tables are private. Members read through `*_view` views that return rows only when the caller is a member; outsiders see nothing but the public FDA feed, `sync_state`, and `network_status` (whether a network exists, and whether it is a sandbox).
+
+## Limits
+
+The database itself is a single SpacetimeDB node: there is no replication or cross-region consensus. The worker pool is fault-tolerant, but the database is not. Offline mode covers counts, usage, receipts, and transfer requests; approvals and shipments require a live connection because they must check current stock. The activity log is not tamper-proof against the database owner.

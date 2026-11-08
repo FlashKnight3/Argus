@@ -13,4 +13,6 @@ import {
 export default {
   runId: __t.string(),
   feedDate: __t.string(),
+  workerId: __t.string(),
+  leaseEpoch: __t.u64(),
 };

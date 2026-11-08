@@ -11,6 +11,9 @@ import {
 } from "spacetimedb";
 
 export default {
+  workerId: __t.string(),
+  leaseEpoch: __t.u64(),
+  runId: __t.u32(),
   key: __t.string(),
   sourceSiteId: __t.u32(),
   destSiteId: __t.u32(),

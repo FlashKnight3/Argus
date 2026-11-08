@@ -11,12 +11,18 @@ import {
 } from "spacetimedb";
 
 export default {
+  workerId: __t.string(),
+  leaseEpoch: __t.u64(),
   inventoryKey: __t.string(),
   inventoryRevision: __t.u32(),
   ratePerDay: __t.f64(),
   daysP10: __t.f64(),
   daysMedian: __t.f64(),
   daysP90: __t.f64(),
+  pStockout: __t.f64(),
+  horizonDays: __t.f64(),
+  fdaAdjusted: __t.bool(),
+  pooled: __t.bool(),
   risk: __t.string(),
   explanation: __t.string(),
 };
