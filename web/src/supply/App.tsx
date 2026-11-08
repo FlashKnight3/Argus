@@ -116,9 +116,9 @@ function Overview({ state, visible, go }: { state: SupplyState; visible: Invento
     </div>
     <div className="two-col">
       <Panel eyebrow="03 / AGENT" title="Planning agent" action={<button className="text-button" onClick={() => go('agent')}>Runs & trace →</button>}>
-        {lastRun ? <div className="detail-stack"><div className="section-row"><strong>Run #{lastRun.id} · {lastRun.trigger}{lastRun.mode ? ` · ${lastRun.mode}` : ''}</strong><Pill tone={lastRun.status === 'done' ? 'good' : lastRun.status === 'failed' ? 'danger' : 'info'}>{lastRun.status}</Pill></div>
+        {lastRun ? <div className="detail-stack"><div className="section-row"><strong>Run #{lastRun.id} · {lastRun.trigger === 'auto' ? 'automatic' : 'requested'}</strong><Pill tone={lastRun.status === 'done' ? 'good' : lastRun.status === 'failed' ? 'danger' : 'info'}>{lastRun.status}</Pill></div>
           <p>{lastRun.summary ? plainPreview(lastRun.summary, 240) : lastRun.status === 'queued' ? 'Waiting for the worker holding the agent lease…' : 'Working…'}</p>
-          <small className="muted">{lastRun.proposals} drafts · {lastRun.matches} FDA match suggestions · {pendingMatches.length} awaiting review · {date(lastRun.createdAt)}</small></div>
+          <small className="muted">{lastRun.proposals || lastRun.matches ? `${lastRun.proposals} transfer drafts · ${lastRun.matches} FDA link suggestions` : 'No action needed'}{pendingMatches.length ? ` · ${pendingMatches.length} awaiting review` : ''} · {date(lastRun.createdAt)}</small></div>
           : <Empty title="No agent runs yet" detail="The agent runs on its own when at-risk items change, or on request." />}
       </Panel>
       <Panel eyebrow="04 / SYSTEM" title="Distributed workers" action={<button className="text-button" onClick={() => go('system')}>Leases & health →</button>}>

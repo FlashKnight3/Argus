@@ -23,6 +23,8 @@ export function SystemPage({ state, actions, queue, notify }: { state: SupplySta
   const [autoRun, setAutoRun] = useState(state.config?.agentAutoRun ?? true);
   const [busy, setBusy] = useState(false);
   useEffect(() => { if (state.config) { setTtl(String(state.config.reservationTtlHours)); setAutoRun(state.config.agentAutoRun); } }, [state.config]);
+  const online = state.workers.filter(w => w.status === 'online');
+  const stopped = state.workers.filter(w => w.status !== 'online');
   const events = state.activity.filter(a => /^(lease|worker|agent\.(queue|done|failed)|transfer\.expire|config)/.test(a.action)).slice(0, 25);
   const save = async () => {
     setBusy(true);
@@ -33,15 +35,18 @@ export function SystemPage({ state, actions, queue, notify }: { state: SupplySta
 
   return <div className="page-stack">
     <div className="page-intro"><div><div className="eyebrow">DISTRIBUTED SYSTEM / LIVE</div><h1>System</h1>
-      <p>Workers share the network through leases. Each lease has a fencing epoch: if a worker stalls and its lease moves on, its late writes are rejected by the database.</p></div></div>
+      <p>Background workers do the automatic work: forecasting each site, importing the FDA feed, and running the agent. This page shows who is doing what, and proves the system keeps working when a worker fails.</p></div></div>
     <div className="two-col">
-      <Panel eyebrow="WORKER POOL" title={`${state.workers.filter(w => w.status === 'online').length} of ${state.workers.length} online`}>
-        {state.workers.length ? <div className="table-scroll"><table className="data-table"><thead><tr><th>Worker</th><th>Status</th><th>Last heartbeat</th><th>Leases</th></tr></thead><tbody>
-          {state.workers.map(w => { const age = Math.max(0, (now - Number(w.lastSeenMicros / 1000n)) / 1000);
+      <Panel eyebrow="WORKER POOL" title={`${online.length} worker${online.length === 1 ? '' : 's'} online`}>
+        <p className="help">Each worker checks in every 2 seconds. If one goes quiet for 10 seconds it's marked offline and the others take over its jobs. Stopped workers disappear from this list after a minute; a restart shows up as a new worker.</p>
+        {online.length ? <div className="table-scroll"><table className="data-table"><thead><tr><th>Worker</th><th>Status</th><th>Last heartbeat</th><th>Leases</th></tr></thead><tbody>
+          {online.map(w => { const age = Math.max(0, (now - Number(w.lastSeenMicros / 1000n)) / 1000);
             return <tr key={w.id}><td><strong>{w.name}</strong><small title={w.id}>{w.id.slice(-18)} · v{w.version}</small></td><td><Pill tone={w.status === 'online' ? 'good' : 'neutral'}>{w.status}</Pill></td><td>{age < 120 ? `${age.toFixed(0)} s ago` : date({ microsSinceUnixEpoch: w.lastSeenMicros })}</td><td>{state.leases.filter(l => l.holder === w.id).length}</td></tr>; })}
-        </tbody></table></div> : <Empty title="No workers yet" detail="Start one or more workers (npm run agent) and grant their identity the service role." />}
+        </tbody></table></div> : <Empty title="No workers running" detail="Start the app with npm run demo (it starts two workers), and make sure the worker has the service role." />}
+        {stopped.length > 0 && <small className="muted">{stopped.length} recently stopped worker{stopped.length === 1 ? '' : 's'} ({stopped.map(w => w.name).join(', ')}): their jobs were handed to the online workers.</small>}
       </Panel>
-      <Panel eyebrow="LEASES / FENCING TOKENS" title={`${state.leases.length} resources`}>
+      <Panel eyebrow="WHO IS DOING WHAT" title={`${state.leases.length} jobs`}>
+        <p className="help">Each job is held by exactly one worker at a time and renewed every couple of seconds (the countdown). <b>Epoch</b> counts how many times the job has changed hands; the database rejects any write tagged with an older epoch, so a frozen worker that wakes up late can't overwrite newer work.</p>
         {state.leases.length ? <div className="table-scroll"><table className="data-table"><thead><tr><th>Resource</th><th>Holder</th><th>Epoch</th><th>Expires</th></tr></thead><tbody>
           {state.leases.map(l => { const left = (Number(l.expiresAtMicros / 1000n) - now) / 1000; const live = !!l.holder && left > 0;
             return <tr key={l.resource}><td><strong>{resourceLabel(state, l.resource)}</strong><small>{l.resource}</small></td><td>{live ? state.workers.find(w => w.id === l.holder)?.name ?? l.holder : <span className="muted">unassigned</span>}</td><td><code>{String(l.epoch)}</code></td><td>{live ? <Pill tone={left < 4 ? 'watch' : 'good'}>{left.toFixed(0)} s</Pill> : <Pill>expired</Pill>}</td></tr>; })}
@@ -49,14 +54,16 @@ export function SystemPage({ state, actions, queue, notify }: { state: SupplySta
       </Panel>
     </div>
     <div className="two-col">
-      <Panel eyebrow="INFERENCE QUALITY" title="Forecast calibration (rolling backtest)">
+      <Panel eyebrow="INFERENCE QUALITY" title="How accurate are the forecasts?">
+        <p className="help">Each week of past usage is hidden from the model, it predicts that week, and we check whether the real number fell inside its 80% range. Close to 80% means the ranges can be trusted.</p>
         {state.metrics.length ? <div className="table-scroll"><table className="data-table"><thead><tr><th>Site</th><th>80% interval coverage</th><th>MAE (7-day units)</th><th>Bias</th></tr></thead><tbody>
           {state.metrics.map(m => <tr key={m.key}><td><strong>{siteName(state.sites, m.siteId)}</strong><small>{m.itemsEvaluated} items · {m.windows} weekly windows</small></td>
             <td><Pill tone={Math.abs(m.coverage80 - 0.8) <= 0.1 ? 'good' : 'watch'}>{percent(m.coverage80)}</Pill></td><td>{number(m.meanAbsError, 1)}</td><td>{m.bias >= 0 ? '+' : ''}{number(m.bias, 1)}</td></tr>)}
-        </tbody></table></div> : <Empty title="No calibration yet" detail="Each site needs about three weeks of recorded usage before held-out weeks can be scored." />}
+        </tbody></table></div> : <Empty title="Not enough history yet" detail="This needs about three weeks of recorded usage at a site. Record usage on the Inventory page (or try the sandbox, which has 60 days)." />}
         <small className="muted"><Gauge size={12}/> At weekly origins the model is refit on prior data only and predicts the next 7 days. Well-calibrated 80% intervals contain the actual demand about 80% of the time.</small>
       </Panel>
-      <Panel eyebrow="THIS BROWSER" title="Offline queue">
+      <Panel eyebrow="THIS BROWSER" title="Offline changes">
+        <p className="help">If this browser loses its connection, changes you make are saved here and sent automatically when it reconnects. Each is applied exactly once. All zeros means everything is synced.</p>
         <div className="mini-grid"><div><span>Connection</span><b>{state.connected ? 'Live' : 'Offline'}</b></div><div><span>Queued writes</span><b>{queue.queue.length}</b></div><div><span>Conflicts</span><b>{queue.conflicts.length}</b></div><div><span>Identity</span><b title={state.identity}>{state.identity.slice(0, 10)}…</b></div></div>
         {queue.queue.map(op => <div className="list-row" key={op.opId}><div><strong>{op.label}</strong><small>{op.opId.slice(0, 8)} · queued {new Date(op.queuedAt).toLocaleTimeString()}</small></div><Pill tone="watch">pending</Pill></div>)}
         {queue.conflicts.map(op => <div className="list-row" key={op.opId}><div><strong>{op.label}</strong><small>{op.error}</small></div><button className="button ghost small" onClick={() => queue.discardConflict(op.opId)}>Dismiss</button></div>)}

@@ -9,6 +9,13 @@ const triggerText = (run: AgentRun) => run.trigger === 'auto'
   ? `Started automatically: ${run.note.replace(/\s*\[[0-9a-f]+\]\s*$/, '').toLowerCase() || 'at-risk items changed'}.`
   : run.note ? `Requested by a manager — focus: “${run.note}”` : 'Requested by a manager.';
 
+const outcome = (run: AgentRun) => {
+  if (run.status !== 'done') return run.status === 'failed' ? 'Run failed' : run.status === 'queued' ? 'Waiting to start' : 'Working…';
+  const parts = [run.proposals ? `${run.proposals} transfer draft${run.proposals === 1 ? '' : 's'}` : '', run.matches ? `${run.matches} FDA link suggestion${run.matches === 1 ? '' : 's'}` : ''].filter(Boolean);
+  return parts.length ? parts.join(' · ') : 'No action needed';
+};
+const stripModel = (text: string) => text.replace(/^Model \S+ \(effort \w+\) reviewing/, 'Reviewing');
+
 function pretty(content: string): string {
   try { return JSON.stringify(JSON.parse(content), null, 2); } catch { return content; }
 }
@@ -27,7 +34,7 @@ function Step({ step }: { step: AgentStep }) {
   }
   return <div className={`trace-step ${step.kind}`}>
     <div className="trace-head"><Bot size={13}/><b>{kindLabel[step.kind] ?? step.kind}</b><small>{date(step.at)}</small></div>
-    <Markdown text={step.content} /></div>;
+    <Markdown text={stripModel(step.content)} /></div>;
 }
 
 const tone = (run: AgentRun) => run.status === 'done' ? 'good' : run.status === 'failed' ? 'danger' : run.status === 'running' ? 'info' : 'watch';
@@ -39,6 +46,8 @@ export function AgentPage({ state, actions, notify }: { state: SupplyState; acti
   const [busy, setBusy] = useState(false);
   const run = state.agentRuns.find(r => r.id === selectedId) ?? state.agentRuns[0];
   const steps = useMemo(() => run ? state.agentSteps.filter(s => s.runId === run.id) : [], [run, state.agentSteps]);
+  const finalStep = [...steps].reverse().find(s => s.kind === 'final');
+  const otherSteps = steps.filter(s => s !== finalStep);
   const holder = state.leases.find(l => l.resource === 'agent');
   const holderName = state.workers.find(w => w.id === holder?.holder)?.name;
   const pendingMatches = state.matches.filter(m => m.status === 'pending').sort((a, b) => b.confidence - a.confidence);
@@ -67,15 +76,17 @@ export function AgentPage({ state, actions, notify }: { state: SupplyState; acti
     <div className="agent-layout">
       <Panel eyebrow="RUN HISTORY" title={`${state.agentRuns.length} runs`}>
         {state.agentRuns.length ? <div className="notice-list">{state.agentRuns.slice(0, 40).map(r => <button key={r.id} className={`notice-card ${run?.id === r.id ? 'selected' : ''}`} onClick={() => setSelectedId(r.id)}>
-          <div><strong>Run #{r.id} <span className="muted">· {r.trigger === 'auto' ? 'automatic' : 'requested'}{r.mode ? ` · ${r.mode === 'llm' ? 'Claude' : 'rules'}` : ''}</span></strong><small className="run-preview">{r.summary ? plainPreview(r.summary) : r.status === 'queued' ? 'Waiting for a worker…' : 'Working…'}</small><small>{r.proposals} drafts · {r.matches} matches{r.attempts > 1 ? ` · attempt ${r.attempts}` : ''} · {date(r.createdAt)}</small></div>
+          <div><strong>Run #{r.id} <span className="muted">· {r.trigger === 'auto' ? 'automatic' : 'requested'}</span></strong><small className="run-preview">{r.summary ? plainPreview(r.summary) : r.status === 'queued' ? 'Waiting for a worker…' : 'Working…'}</small><small><span className={r.proposals || r.matches ? 'run-outcome act' : 'run-outcome'}>{outcome(r)}</span> · {date(r.createdAt)}</small></div>
           <Pill tone={tone(r)}>{r.status}</Pill></button>)}</div>
           : <Empty title="No runs yet" detail="Request a run, or add inventory that is at risk." />}
       </Panel>
-      <Panel eyebrow="TRACE" title={run ? `Run #${run.id}` : 'Run trace'} action={run ? <Pill tone={tone(run)}>{run.status}</Pill> : undefined}>
+      <Panel eyebrow="RESULT" title={run ? `Run #${run.id}` : 'Run result'} action={run ? <Pill tone={tone(run)}>{run.status}</Pill> : undefined}>
         {run ? <div className="trace"><div className="trace-note">{triggerText(run)}</div>
-          {steps.length ? steps.map(step => <Step key={step.id} step={step} />) : <p className="muted">No steps recorded yet.</p>}
-          {run.workerId && <small className="muted">Executed by {state.workers.find(w => w.id === run.workerId)?.name ?? run.workerId}</small>}</div>
-          : <Empty title="Select a run" detail="See every tool call and result the agent produced." />}
+          <div className={`run-result ${run.proposals || run.matches ? 'act' : ''}`}><b>{outcome(run)}</b>{run.proposals > 0 && <span> — review them under Transfers.</span>}{run.matches > 0 && <span> — review them in Pharmacist review below.</span>}</div>
+          {finalStep ? <Markdown text={finalStep.content} /> : run.status === 'done' || run.status === 'failed' ? <p className="muted">{run.summary || 'No summary.'}</p> : <p className="muted">The agent is working…</p>}
+          {otherSteps.length > 0 && <details className="trace-steps"><summary>How the agent worked ({otherSteps.length} step{otherSteps.length === 1 ? '' : 's'})</summary>
+            {otherSteps.map(step => <Step key={step.id} step={step} />)}</details>}</div>
+          : <Empty title="Select a run" detail="See what the agent concluded and how it got there." />}
       </Panel>
     </div>
     <Panel eyebrow="PHARMACIST REVIEW" title={`${pendingMatches.length} FDA match suggestion${pendingMatches.length === 1 ? '' : 's'}`}>

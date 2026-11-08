@@ -5,7 +5,7 @@ import { backtestItem, DAY_MS, forecastItem, poolRates, summarizeBacktest, windo
 import { digits, isCurrent, matchCandidates } from './ndc.ts';
 import { maxGive, planTransfers, type PlanItem } from './planner.ts';
 import { fetchFda } from './fda.ts';
-import { runLlmAgent, type AgentToolbox } from './llm.ts';
+import { AGENT_MODEL, runLlmAgent, type AgentToolbox } from './llm.ts';
 import type Anthropic from '@anthropic-ai/sdk';
 import { createHash } from 'node:crypto';
 
@@ -294,7 +294,7 @@ export class AgentWorker {
       try { await this.conn!.reducers.claimAgentRun({ runId: queued.id, workerId: this.opts.workerId, leaseEpoch: epoch, mode }); }
       catch (e) { if (!this.fenced(e)) this.log('warn', `Claim run #${queued.id}: ${errText(e)}`); return; }
       this.stats.runs++;
-      this.log('info', `Running agent run #${queued.id} (${queued.trigger}, ${mode})`);
+      this.log('info', `Running agent run #${queued.id} (${queued.trigger}, ${mode}${mode === 'llm' ? `, ${AGENT_MODEL}` : ''})`);
       const toolbox = this.toolbox(queued.id, epoch);
       let summary: string;
       let status: 'done' | 'failed' = 'done';

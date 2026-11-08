@@ -80,7 +80,7 @@ const clip = (s: string, n = 1500) => (s.length > n ? `${s.slice(0, n)}…` : s)
 export async function runLlmAgent(client: Pick<Anthropic, 'beta'>, tools: AgentToolbox, note: string): Promise<string> {
   const messages: Anthropic.Beta.Messages.BetaMessageParam[] = [{ role: 'user', content:
     `Review the network now and draft what is warranted.${note ? `\nRequest from a manager: ${note}` : ''}` }];
-  await tools.step('plan', '', `Model ${AGENT_MODEL} (effort ${EFFORT}) reviewing the network${note ? ` for: ${note}` : ''}.`);
+  await tools.step('plan', '', `Reviewing the network${note ? ` for: ${note}` : ''}.`);
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     let response: Anthropic.Beta.Messages.BetaMessage;
     try {

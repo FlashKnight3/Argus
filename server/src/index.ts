@@ -273,6 +273,7 @@ const CONFIG_ID = 1;
 const SECOND = 1_000_000n;
 const LEASE_TTL_US = 10n * SECOND;
 const WORKER_OFFLINE_US = 10n * SECOND;
+const WORKER_FORGET_US = 60n * SECOND;
 const SWEEP_INTERVAL_US = 2n * SECOND;
 const RECEIPT_RETENTION_US = 7n * 86_400n * SECOND;
 const MAX_AGENT_ATTEMPTS = 3;
@@ -373,6 +374,11 @@ export const sweep = spacetimedb.reducer({ onSchedule: sweepJob }, { arg: sweepJ
       ctx.db.worker.id.update({ ...w, status: 'offline' });
       ctx.db.activity.insert({ id: 0, actor: w.identity, action: 'worker.offline', detail: `${w.name} (${w.id}) missed heartbeats`, at: ctx.timestamp });
     }
+  }
+  // Forget workers that have been gone for a while (each restart registers a new worker ID).
+  // Their leases have long expired; any run they left behind is re-queued below.
+  for (const w of [...ctx.db.worker.iter()]) {
+    if (t0 - w.lastSeenMicros > WORKER_FORGET_US) ctx.db.worker.id.delete(w.id);
   }
   for (const run of [...ctx.db.agentRun.iter()]) {
     if (run.status !== 'running' || (!offline.has(run.workerId) && ctx.db.worker.id.find(run.workerId))) continue;

@@ -307,3 +307,11 @@ code{font-size:11px;overflow-wrap:anywhere}
 .md-table th,.md-table td{padding:6px 9px;border-bottom:1px solid #edf1ec;vertical-align:top}
 .md-table tr:last-child td{border-bottom:none}
 @media (max-width:980px){.agent-layout{grid-template-columns:1fr}}
+.run-outcome{color:#8a998f}.run-outcome.act{color:#2f7a4f;font-weight:600}
+.run-result{font-size:13px;padding:9px 11px;border-radius:8px;background:#f4f6f3;color:#40584a}
+.run-result.act{background:#eaf6ec;color:#22603d}
+.trace-steps{border-top:1px solid #edf1ec;padding-top:8px;margin-top:6px}
+.trace-steps>summary{cursor:pointer;font-size:12px;color:#5e6f64;font-weight:600;padding:4px 0}
+.trace-steps[open]>summary{margin-bottom:8px}
+.trace-steps .trace-step{margin-bottom:8px}
+.help{font-size:12px;color:#6c7d71;margin:-4px 0 12px;line-height:1.5}
