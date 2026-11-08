@@ -16,4 +16,5 @@ export default __t.row({
   role: __t.string(),
   siteId: __t.u32().name("site_id"),
   createdAt: __t.timestamp().name("created_at"),
+  email: __t.string(),
 });

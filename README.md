@@ -21,7 +21,7 @@ npm run demo      # your real network (argus-supply): starts empty, you enter co
 Each command starts or reuses SpacetimeDB on port 3000, publishes its database without deleting data, starts **two agent workers** (`ARGUS_WORKERS=N` for more), and serves the dashboard on the first free port from 5173.
 
 - **Sandbox:** open the URL, click **Join sandbox as admin**, and data appears as the seeder finishes.
-- **Real network:** create the network (you become admin), then click **Activate FDA worker**. Add sites in **Network** and real counts in **Inventory**.
+- **Real network:** create the network with your name, email, and password (you become admin), then click **Activate workers**. Add sites and people in **Network**, and real counts in **Inventory** (one at a time, **Record usage** for daily entry, or **Import CSV**).
 
 **Try failover:** kill one worker's PID (printed at startup) and watch **System → Leases** move to the survivor within about 10 s, each with a new epoch.
 
@@ -40,15 +40,15 @@ The integration test needs SpacetimeDB running.
 
 ## Screens
 
-| Screen | What it shows |
-|---|---|
-| Overview | At-risk items ranked by stockout probability, agent drafts, latest agent run, worker health, calibration |
-| Inventory | Counts, lead times, stockout meter, FDA-adjusted and pooled flags, agent FDA-match suggestions to link or dismiss |
-| Transfers | Request → reserve → ship → receive; agent drafts tagged by run; automatic release of stale reservations |
-| Agent | Run history, full step-by-step trace (plan, tool calls, results, summary), manual runs with an optional focus, pharmacist review queue |
-| FDA watch | The public feed with source dates and package NDCs; "Track at a site" |
-| Network | Sites, members, grants, and revocation |
-| System | Worker pool, leases with fencing epochs and expiry, calibration per site, this browser's offline queue, coordination log, policies |
+| Screen | Tabs | What it does |
+|---|---|---|
+| Home | — | At-risk products ranked by chance of running out, drafts to review, the agent's latest conclusion, forecast accuracy |
+| Inventory | Stock · Record usage · Import CSV | Search with suggestions (and need-based recommendations when empty), counts, forecast per product, record usage/deliveries, bulk daily entry, CSV import with preview |
+| Transfers | Agent drafts · In progress · History | Review drafts, then request → reserve → ship → receive |
+| Agent | Runs · FDA link review | Ask the agent a question, read its conclusion (steps hidden behind a toggle), confirm suggested FDA links |
+| FDA watch | Current shortages · All notices | Search the FDA list with suggestions; "Track at a site" |
+| Network | Sites · People · Workers | Sites, accounts (create, edit role/site, reset password, remove), worker identities |
+| System | Status · Settings | Which worker runs which job; settings for shortage resupply stretch, reservation expiry, auto-run, and Claude on/off |
 
 ## What is real
 
@@ -85,4 +85,4 @@ The code is in `server/src/index.ts` (module), `agent/src` (workers, model, plan
 
 ## Important boundary
 
-Read access is restricted to network members through views, but this is still a local prototype. It has no institutional sign-in, TLS, backups, or high availability for the database itself. Do not enter patient information or confidential facility data. See [Security](docs/SECURITY.md).
+People sign in with email and password (hashed in the database, lockout after 5 failures), and data is readable only by signed-in members. This is still a local prototype: no institutional SSO, TLS, backups, or database high availability. Do not enter patient information or confidential facility data. See [Security](docs/SECURITY.md).

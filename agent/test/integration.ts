@@ -36,15 +36,38 @@ const outsider = new DbHttp(host, db, outsiderId.token);
 
 // ── Setup and privacy ───────────────────────────────────────────────────────
 assert.equal((await owner.sql('SELECT * FROM network_status'))[0]?.initialized, false);
-await owner.call('bootstrap_network', 'Verification Admin', 'Source Pharmacy', 'Test');
+await owner.call('bootstrap_network', 'Verification Admin', 'admin@verify.test', 'verify-password', 'Source Pharmacy', 'Test');
 await owner.call('create_site', 'Destination Pharmacy', 'Test', '');
 await owner.call('create_site', 'Third Pharmacy', 'Test', '');
 await owner.call('grant_member', serviceId.identity, 'Verification workers', 'service', 0);
-await rejects(owner.call('bootstrap_network', 'x', 'y', 'z'), /already been created/, 'second bootstrap');
+await rejects(owner.call('bootstrap_network', 'x', 'x@y.test', 'password123', 'y', 'z'), /already been created/, 'second bootstrap');
 await rejects(outsider.sql('SELECT * FROM inventory'), /private|no such table|not.*scope/i, 'outsider reads private table');
 assert.equal((await outsider.sql('SELECT * FROM site_view')).length, 0);
 assert.equal((await owner.sql('SELECT * FROM site_view')).length, 3);
 pass('base tables are private; views show members everything and outsiders nothing');
+
+// ── Accounts: sign-in, lockout, sign-out ────────────────────────────────────
+type Status = { ok: boolean; message: string };
+const statusOf = async (c: DbHttp) => (await c.sql<Status>('SELECT * FROM my_login_status'))[0];
+await owner.call('create_account', 'manager@verify.test', 'Site Manager', 'manager', 2, 'manager-pass');
+await outsider.call('sign_in', 'manager@verify.test', 'wrong-pass');
+assert.equal((await statusOf(outsider)).ok, false);
+assert.equal((await outsider.sql('SELECT * FROM site_view')).length, 0);
+await outsider.call('sign_in', 'MANAGER@verify.test', 'manager-pass');
+assert.equal((await statusOf(outsider)).ok, true);
+assert.equal((await outsider.sql('SELECT * FROM site_view')).length, 3);
+await rejects(outsider.call('create_site', 'Sneaky', '', ''), /authorized/, 'manager cannot create sites');
+await outsider.call('sign_out');
+assert.equal((await outsider.sql('SELECT * FROM site_view')).length, 0);
+for (let i = 0; i < 5; i++) await outsider.call('sign_in', 'manager@verify.test', 'nope');
+await outsider.call('sign_in', 'manager@verify.test', 'manager-pass');
+assert.match((await statusOf(outsider)).message, /locked|Too many/);
+assert.equal((await outsider.sql('SELECT * FROM site_view')).length, 0);
+await owner.call('reset_account_password', 'manager@verify.test', 'manager-pass-2');
+await outsider.call('sign_in', 'manager@verify.test', 'manager-pass-2');
+assert.equal((await statusOf(outsider)).ok, true);
+await outsider.call('sign_out');
+pass('accounts: wrong password shows nothing, right password grants site-scoped access, 5 failures lock, admin reset unlocks, sign-out revokes');
 
 // ── Two workers share the leases ────────────────────────────────────────────
 const quiet = () => {};
@@ -150,7 +173,7 @@ const linked = await until('forecast picks up the FDA link', async () => {
 pass(`linked item re-forecast with FDA-stretched lead time (P(stockout)=${linked.p_stockout})`);
 
 // ── Reservation expiry by the scheduled sweep ───────────────────────────────
-await owner.call('set_network_config', 0.0008, true);   // ≈ 3 s
+await owner.call('set_network_config', 0.0008, true, 2.5, true);   // ≈ 3 s
 await owner.call('create_transfer', 'op-tr-exp', 1, 3, code, 7, 'expiry check');
 const exp = (await owner.sql<Tr>('SELECT * FROM transfer_view')).find(t => t.status === 'requested')!;
 await owner.call('approve_transfer', exp.id);
@@ -159,8 +182,34 @@ await until('unshipped reservation released', async () => {
   const s = (await owner.sql<Inv>('SELECT * FROM inventory_view')).find(i => i.key === `1:${code}`);
   return t?.status === 'cancelled' && s?.reserved === 0;
 }, 20_000);
-await owner.call('set_network_config', 24, true);
+await owner.call('set_network_config', 24, true, 2.5, true);
 pass('the scheduled sweep cancels a stale reservation and releases the stock');
+
+// ── Equivalent products: same RxCUI, different package NDC ──────────────────
+type Sh = { key: string; package_ndc: string; rxcui: string; active: boolean; status: string };
+const to11 = (n: string) => { const p = n.split('-'); return p.length === 3 ? p[0].padStart(5, '0') + p[1].padStart(4, '0') + p[2].padStart(2, '0') : ''; };
+const byRx = new Map<string, Sh[]>();
+for (const r of await owner.sql<Sh>('SELECT * FROM shortage')) {
+  if (!r.active || !r.rxcui || !/^\d{4,5}-\d{3,4}-\d{1,2}$/.test(r.package_ndc)) continue;
+  byRx.set(r.rxcui, [...(byRx.get(r.rxcui) ?? []), r]);
+}
+const pair = [...byRx.values()].map(g => g.filter((r, i) => g.findIndex(x => to11(x.package_ndc) === to11(r.package_ndc)) === i)).find(g => g.length >= 2)!;
+assert.ok(pair, 'need two FDA packages with the same RxCUI');
+const [pa, pb] = pair;
+const na = to11(pa.package_ndc), nb = to11(pb.package_ndc);
+await owner.call('upsert_inventory', 'op-eq-dst', 3, na, 'Equivalent A', 'units', 3, 5, 10, 7, pa.key, 0);
+await owner.call('upsert_inventory', 'op-eq-src', 1, nb, 'Equivalent B', 'units', 900, 1, 10, 7, pb.key, 0);
+await owner.call('request_agent_run', 'equivalence check');
+const eq = await until('agent drafted an equivalent-product transfer', async () =>
+  (await owner.sql<Prop & { dest_ndc: string }>('SELECT * FROM proposal_view')).find(p => p.status === 'pending' && p.dest_site_id === 3 && p.dest_ndc === na), 60_000);
+assert.equal(eq.source_site_id, 1);
+await owner.call('accept_proposal', eq.key);
+const eqTr = (await owner.sql<Tr & { dest_ndc: string; ndc: string }>('SELECT * FROM transfer_view')).find(t => t.dest_ndc === na)!;
+await owner.call('approve_transfer', eqTr.id); await owner.call('ship_transfer', eqTr.id); await owner.call('receive_transfer', eqTr.id);
+const dst = (await owner.sql<Inv>('SELECT * FROM inventory_view')).find(i => i.key === `3:${na}`)!;
+assert.equal(dst.on_hand, 3 + eqTr.quantity);
+assert.ok(!(await owner.sql<Inv>('SELECT * FROM inventory_view')).some(i => i.key === `3:${nb}`));
+pass(`equivalent product (RxCUI ${pa.rxcui}): ${eqTr.quantity} units of NDC ${nb} drafted and received into site 3's NDC ${na} item`);
 
 // ── Failover ────────────────────────────────────────────────────────────────
 const before = (await leases()).find(l => l.resource === 'site:1')!;

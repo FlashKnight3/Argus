@@ -11,7 +11,7 @@ Both publish with `--delete-data=never` (an incompatible schema change fails rat
 
 The worker token is in `.argus-supply/service.json` (all workers share this identity and differ by worker ID). `npm run worker:identity` prints it. The sandbox seeder has its own token in `.argus-supply/sandbox-seeder.json`. Keep both private, and don't delete `service.json` without updating membership.
 
-Logs are written to `logs/supply-YYYYMMDD-HHMMSS-PID/`: `publish.log`, `worker-a.log`, `worker-b.log`, `seed.log` (sandbox), `web.log`, and `spacetimedb.log` (when the script started the database).
+Logs are written to `logs/supply-YYYYMMDD-HHMMSS-PID/` (only the 5 most recent runs are kept): `publish.log`, `worker-a.log`, `worker-b.log`, `seed.log` (sandbox), `web.log`, and `spacetimedb.log` (when the script started the database).
 
 ## Manual commands
 
@@ -38,6 +38,20 @@ npm run dev
 | `VITE_SPACETIMEDB_DB_NAME` | web | Database name |
 
 After a schema change, run `npm run generate` then `npm run typecheck`. Adding columns requires a `.default(...)` so existing rows migrate.
+
+## Accounts
+
+- The person who creates the network chooses an email and password and becomes admin.
+- Admins add people in **Network → People** (role and site, plus a temporary password), edit roles, reset passwords (which also unlocks a locked account), and remove access.
+- Everyone can change their own password from the user menu (top right).
+- An admin from before accounts existed sees **Secure account**: add an email and password once. Sign-out is blocked until then, so you can't lock yourself out.
+- Sandbox networks also allow **Join sandbox** without a password.
+
+## Getting data in
+
+- **One product:** Inventory → **+**. Search a drug to fill in the name, NDC, and FDA link.
+- **Daily usage:** Inventory → **Record usage**: enter used and received quantities for every product at a site, then **Save all**.
+- **Bulk:** Inventory → **Import CSV** (download the template). Rows are validated and previewed; existing products are updated.
 
 ## Demonstrating the distributed behavior
 

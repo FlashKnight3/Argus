@@ -35,6 +35,8 @@ export interface ForecastOptions {
   fdaActive: boolean;
   /** Mean daily rate at other sites stocking the same NDC, if any (empirical-Bayes pooling). */
   poolRate?: number;
+  /** Lead-time stretch for active FDA shortages (network setting; default 2.5). */
+  shortageMultiplier?: number;
 }
 
 export interface Forecast {
@@ -83,7 +85,8 @@ export function classify(free: number, p10: number, pStockout: number, known: bo
 export function forecastItem(input: ForecastInput, opts: ForecastOptions): Forecast {
   const { used, observedDays } = windowStats(input.usage, input.firstObservedMs, opts.nowMs);
   const post = posterior(input.baselineDaily, used, observedDays, opts.poolRate);
-  const meanLead = Math.max(0.5, input.leadTimeDays) * (opts.fdaActive ? SHORTAGE_LEAD_MULTIPLIER : 1);
+  const stretch = opts.shortageMultiplier ?? SHORTAGE_LEAD_MULTIPLIER;
+  const meanLead = Math.max(0.5, input.leadTimeDays) * (opts.fdaActive ? stretch : 1);
   const free = Math.max(0, input.free);
   if (!post) {
     return { ratePerDay: 0, daysP10: 0, daysMedian: 0, daysP90: 0, pStockout: free <= 0 ? 1 : 0, horizonDays: round(meanLead),
@@ -108,7 +111,7 @@ export function forecastItem(input: ForecastInput, opts: ForecastOptions): Forec
   const risk = classify(free, p10, pStockout, true);
   const parts = [
     `${free} ${input.unit} free; demand ≈ ${round(mean, 2)}/day (${used} used over ${round(observedDays)} observed days${input.baselineDaily > 0 ? `, ${input.baselineDaily}/day baseline prior` : post.pooled ? ', prior pooled from other sites' : ''}).`,
-    `P(stockout before resupply) ${Math.round(pStockout * 100)}% over a ~${round(meanLead)}-day lead time${opts.fdaActive ? ` (stretched ×${SHORTAGE_LEAD_MULTIPLIER} by an active FDA shortage)` : ''}.`,
+    `P(stockout before resupply) ${Math.round(pStockout * 100)}% over a ~${round(meanLead)}-day lead time${opts.fdaActive ? ` (stretched ×${stretch} by an active FDA shortage)` : ''}.`,
     'Ranges reflect demand and resupply uncertainty, not delivery promises.',
   ];
   return { ratePerDay: Math.round(mean * 1000) / 1000, daysP10: p10, daysMedian: p50, daysP90: p90, pStockout,

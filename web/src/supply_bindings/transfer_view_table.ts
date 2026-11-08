@@ -24,4 +24,5 @@ export default __t.row({
   createdAt: __t.timestamp().name("created_at"),
   updatedAt: __t.timestamp().name("updated_at"),
   reservedAtMicros: __t.i64().name("reserved_at_micros"),
+  destNdc: __t.string().name("dest_ndc"),
 });

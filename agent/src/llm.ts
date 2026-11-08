@@ -15,7 +15,7 @@ export interface AgentToolbox {
   itemDetail(inventoryKey: string): unknown;
   searchFda(query: string, limit: number): unknown;
   /** Returns a human-readable outcome; throws on a rejected draft. */
-  proposeTransfer(a: { source_site_id: number; dest_site_id: number; ndc: string; quantity: number; reason: string }): Promise<string>;
+  proposeTransfer(a: { source_site_id: number; dest_site_id: number; ndc: string; dest_ndc: string; quantity: number; reason: string }): Promise<string>;
   suggestMatch(a: { inventory_key: string; shortage_key: string; confidence: number; rationale: string }): Promise<string>;
   step(kind: 'plan' | 'thought' | 'tool_call' | 'tool_result' | 'final' | 'error', tool: string, content: string): Promise<void>;
 }
@@ -25,7 +25,7 @@ Your job: find sites at risk of running out of a product before resupply, and dr
 
 Rules:
 - You only draft. Managers at both sites must request, reserve, ship, and receive. Never imply that stock has moved.
-- Only propose between the same canonical NDC and unit. Respect each source's max_give from the overview; the tool rejects anything larger.
+- Propose between the same package NDC, or between equivalent products that share an rxcui (set dest_ndc and say a pharmacist must confirm the substitution). Units must match. Respect each source's max_give; the tool rejects anything larger.
 - Prefer few, well-justified drafts. Explain each in one or two sentences citing stockout probability and days of cover.
 - FDA matches: suggest only when the evidence is concrete (same NDC, same product code with a different package, or a clearly identical product name). State the evidence and what a pharmacist must confirm.
 - Do not give clinical advice or recommend therapeutic substitutions.
@@ -47,9 +47,10 @@ export const TOOLS: Anthropic.Beta.Messages.BetaTool[] = [
   { name: 'propose_transfer', strict: true,
     description: 'Draft a transfer for human review. Quantity must not exceed the source max_give.',
     input_schema: strictObject({
-      source_site_id: { type: 'integer' }, dest_site_id: { type: 'integer' }, ndc: { type: 'string' },
+      source_site_id: { type: 'integer' }, dest_site_id: { type: 'integer' }, ndc: { type: 'string', description: 'Package NDC at the source' },
+      dest_ndc: { type: 'string', description: 'Destination package NDC: empty for the same NDC, or an equivalent product with the same rxcui' },
       quantity: { type: 'integer' }, reason: { type: 'string' },
-    }, ['source_site_id', 'dest_site_id', 'ndc', 'quantity', 'reason']) },
+    }, ['source_site_id', 'dest_site_id', 'ndc', 'dest_ndc', 'quantity', 'reason']) },
   { name: 'suggest_fda_match', strict: true,
     description: 'Suggest linking a local inventory item to an FDA shortage record for a pharmacist to confirm.',
     input_schema: strictObject({

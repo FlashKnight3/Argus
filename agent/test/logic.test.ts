@@ -43,6 +43,16 @@ describe('bounded transfer planner', () => {
     expect(drafts.map(d => [d.sourceSiteId, d.quantity])).toEqual([[3, 78], [2, 38]]);
     expect(drafts.every(d => d.destSiteId === 1)).toBe(true);
   });
+  it('uses an equivalent product (same RxCUI, different NDC) only when no exact donor covers the need', () => {
+    const dest = item({ key: '1:a', siteId: 1, ndc: 'a', rxcui: '123', free: 2, rate: 3, risk: 'critical', pStockout: 0.9 });
+    const exact = item({ key: '2:a', siteId: 2, ndc: 'a', rxcui: '123', free: 80, rate: 1 });      // gives 59
+    const equiv = item({ key: '3:b', siteId: 3, ndc: 'b', rxcui: '123', free: 300, rate: 1 });     // gives 279
+    const other = item({ key: '4:c', siteId: 4, ndc: 'c', rxcui: '999', free: 900, rate: 1 });
+    const drafts = planTransfers([dest, exact, equiv, other]);
+    expect(drafts.map(d => [d.sourceSiteId, d.ndc, d.destNdc, d.quantity])).toEqual([[2, 'a', undefined, 59], [3, 'b', 'a', 2]]);
+    expect(drafts[1].reason).toMatch(/pharmacist must confirm/);
+    expect(planTransfers([dest, { ...equiv, rxcui: undefined }])).toEqual([]);
+  });
   it('skips routes that already have an open transfer, and units that differ', () => {
     const dest = item({ siteId: 1, free: 2, rate: 3, risk: 'critical', pStockout: 0.8 });
     const src = item({ siteId: 2, free: 300 });
