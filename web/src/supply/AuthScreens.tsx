@@ -42,6 +42,29 @@ export function AuthNotConfigured({ state, actions }: { state: SupplyState; acti
   </AuthCard>;
 }
 
+/** Sign-in bridge for an existing local database with a pre-OIDC account. */
+export function LegacySignIn({ state, actions }: { state: SupplyState; actions: SupplyActions }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault(); setError(''); setBusy(true);
+    try { await actions.legacySignIn({ email, password }); }
+    catch (err) { setError(errorText(err)); }
+    finally { setBusy(false); }
+  };
+  return <AuthCard title="Sign in to your local network" subtitle="Use the email and password from this database's earlier account system. This local sign-in is available while SpacetimeAuth is unconfigured.">
+    <form onSubmit={submit}>
+      <label>Email<input type="email" autoComplete="username" value={email} onChange={e => setEmail(e.target.value)} required autoFocus /></label>
+      <label>Password<input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required /></label>
+      {(error || (state.legacyLoginStatus && !state.legacyLoginStatus.ok && state.legacyLoginStatus.atMicros > 0n)) &&
+        <div className="auth-error">{error || state.legacyLoginStatus?.message}</div>}
+      <button className="button primary wide" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
+    </form>
+  </AuthCard>;
+}
+
 export function CreateNetwork({ session, actions }: { session: Session; actions: SupplyActions }) {
   const [siteName, setSiteName] = useState('');
   const [region, setRegion] = useState('');

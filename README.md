@@ -10,7 +10,7 @@ The app never invents inventory in a real network. A separate, clearly labeled *
 
 ## Run it
 
-Prerequisites: Node.js 22+, SpacetimeDB CLI 2.14.1, and internet access to `api.fda.gov`.
+Prerequisites: Node.js 22.23.4+ (or a supported 24/26 release), SpacetimeDB CLI 2.14.1, and internet access to `api.fda.gov`.
 
 ```bash
 npm ci
@@ -21,7 +21,7 @@ npm run demo      # your real network (argus-supply): starts empty, you enter co
 Each command starts or reuses SpacetimeDB on port 3000, publishes its database without deleting data, starts **two agent workers** (`ARGUS_WORKERS=N` for more), and serves the dashboard on the first free port from 5173.
 
 - **Sandbox:** open the URL, click **Join sandbox as admin**, and data appears as the seeder finishes.
-- **Real network:** create the network with your name, email, and password (you become admin), then click **Activate workers**. Add sites and people in **Network**, and real counts in **Inventory** (one at a time, **Record usage** for daily entry, or **Import CSV**).
+- **Real network:** configure a SpacetimeAuth OIDC client (`SPACETIMEAUTH_CLIENT_ID=client_… npm run demo`), sign in, and create the first site. An existing local database with an older password account also offers a legacy sign-in until OIDC is configured. Add sites and invitations in **Network**, and real counts in **Inventory**.
 
 **Try failover:** kill one worker's PID (printed at startup) and watch **System → Leases** move to the survivor within about 10 s, each with a new epoch.
 
@@ -47,7 +47,7 @@ The integration test needs SpacetimeDB running.
 | Transfers | Agent drafts · In progress · History | Review drafts, then request → reserve → ship → receive |
 | Agent | Runs · FDA link review | Ask the agent a question, read its conclusion (steps hidden behind a toggle), confirm suggested FDA links |
 | FDA watch | Current shortages · All notices | Search the FDA list with suggestions; "Track at a site" |
-| Network | Sites · People · Workers | Sites, accounts (create, edit role/site, reset password, remove), worker identities |
+| Network | Sites · People · Workers | Sites, email invitations, member roles/site, worker identities |
 | System | Status · Settings | Which worker runs which job; settings for shortage resupply stretch, reservation expiry, auto-run, and Claude on/off |
 
 ## What is real
@@ -85,4 +85,4 @@ The code is in `server/src/index.ts` (module), `agent/src` (workers, model, plan
 
 ## Important boundary
 
-People sign in with email and password (hashed in the database, lockout after 5 failures), and data is readable only by signed-in members. This is still a local prototype: no institutional SSO, TLS, backups, or database high availability. Do not enter patient information or confidential facility data. See [Security](docs/SECURITY.md).
+New deployments use SpacetimeAuth OIDC sign-in and email invitations. Existing local password accounts remain available as a migration bridge when OIDC is unconfigured. This is still a local prototype: no institutional SSO, TLS, backups, or database high availability. Do not enter patient information or confidential facility data. See [Security](docs/SECURITY.md).

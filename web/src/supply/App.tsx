@@ -7,7 +7,7 @@ import { NetworkPage } from './NetworkPage';
 import { AgentPage } from './AgentPage';
 import { SystemPage } from './SystemPage';
 import { WorkerSetup } from './WorkerSetup';
-import { AuthNotConfigured, Connecting, CreateNetwork, Logo, NoAccess, SignIn } from './AuthScreens';
+import { AuthNotConfigured, Connecting, CreateNetwork, LegacySignIn, Logo, NoAccess, SignIn } from './AuthScreens';
 import { useSession, type Session } from './session';
 import { plainPreview } from './Markdown';
 import { DB_NAME } from './connection';
@@ -120,7 +120,9 @@ export default function App() {
   if (!state.connected && !everReady) return <Connecting db={DB_NAME} />;
   if (!state.ready && !everReady) return <Connecting db={DB_NAME} />;
   if (!state.me && !everReady) {
-    if (!session.enabled) return <><AuthNotConfigured state={state} actions={actions} />{toast}</>;
+    if (!session.enabled) return <>{state.initialized && !state.sandbox
+      ? <LegacySignIn state={state} actions={actions} />
+      : <AuthNotConfigured state={state} actions={actions} />}{toast}</>;
     if (!state.initialized) return <><CreateNetwork session={session} actions={actions} />{toast}</>;
     if (!session.signedIn) return <><SignIn state={state} session={session} actions={actions} />{toast}</>;
     return <><NoAccess state={state} session={session} actions={actions} />{toast}</>;
@@ -131,6 +133,10 @@ export default function App() {
   const signOut = async () => {
     setMenuOpen(false);
     if (session.signedIn) { await session.signOut(); return; }
+    if (!session.enabled && me.email && !state.sandbox) {
+      try { await actions.legacySignOut(); } catch (e) { notify(errorText(e), true); }
+      return;
+    }
     notify(legacy ? 'This browser-only admin has no sign-in to leave. Switch to SpacetimeAuth sign-in first.' : 'Sign-in is not configured for this deployment.', true);
   };
   const go = (v: View) => { setView(v); window.scrollTo(0, 0); };

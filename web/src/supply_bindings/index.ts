@@ -53,6 +53,8 @@ import FinishAgentRunReducer from "./finish_agent_run_reducer";
 import GrantMemberReducer from "./grant_member_reducer";
 import InviteMemberReducer from "./invite_member_reducer";
 import JoinNetworkReducer from "./join_network_reducer";
+import LegacySignInReducer from "./legacy_sign_in_reducer";
+import LegacySignOutReducer from "./legacy_sign_out_reducer";
 import ProposeTransferReducer from "./propose_transfer_reducer";
 import PruneHistoryReducer from "./prune_history_reducer";
 import ReceiveTransferReducer from "./receive_transfer_reducer";
@@ -86,6 +88,7 @@ import LeaseViewRow from "./lease_view_table";
 import MatchViewRow from "./match_view_table";
 import MemberViewRow from "./member_view_table";
 import MetricViewRow from "./metric_view_table";
+import MyLegacyLoginStatusRow from "./my_legacy_login_status_table";
 import NetworkStatusRow from "./network_status_table";
 import ProposalViewRow from "./proposal_view_table";
 import ShortageRow from "./shortage_table";
@@ -198,6 +201,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MetricViewRow),
+  myLegacyLoginStatus: __table({
+    name: 'my_legacy_login_status',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, MyLegacyLoginStatusRow),
   networkStatus: __table({
     name: 'network_status',
     indexes: [
@@ -263,6 +273,8 @@ const reducersSchema = __reducers(
   __reducerSchema("grant_member", GrantMemberReducer),
   __reducerSchema("invite_member", InviteMemberReducer),
   __reducerSchema("join_network", JoinNetworkReducer),
+  __reducerSchema("legacy_sign_in", LegacySignInReducer),
+  __reducerSchema("legacy_sign_out", LegacySignOutReducer),
   __reducerSchema("propose_transfer", ProposeTransferReducer),
   __reducerSchema("prune_history", PruneHistoryReducer),
   __reducerSchema("receive_transfer", ReceiveTransferReducer),

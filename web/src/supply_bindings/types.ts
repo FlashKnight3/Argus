@@ -10,6 +10,20 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
+export const Account = __t.object("Account", {
+  email: __t.string(),
+  name: __t.string(),
+  role: __t.string(),
+  siteId: __t.u32(),
+  passwordHash: __t.string(),
+  salt: __t.string(),
+  failedAttempts: __t.u32(),
+  lockedUntilMicros: __t.i64(),
+  createdAt: __t.timestamp(),
+  lastLoginMicros: __t.i64(),
+});
+export type Account = __Infer<typeof Account>;
+
 export const Activity = __t.object("Activity", {
   id: __t.u32(),
   actor: __t.string(),
@@ -138,6 +152,14 @@ export type Lease = __Infer<typeof Lease>;
 export const LeaseView = __t.object("LeaseView", {});
 export type LeaseView = __Infer<typeof LeaseView>;
 
+export const LoginStatus = __t.object("LoginStatus", {
+  identity: __t.string(),
+  ok: __t.bool(),
+  message: __t.string(),
+  atMicros: __t.i64(),
+});
+export type LoginStatus = __Infer<typeof LoginStatus>;
+
 export const MatchSuggestion = __t.object("MatchSuggestion", {
   key: __t.string(),
   inventoryKey: __t.string(),
@@ -184,6 +206,9 @@ export const ModelMetric = __t.object("ModelMetric", {
   networkId: __t.u32(),
 });
 export type ModelMetric = __Infer<typeof ModelMetric>;
+
+export const MyLegacyLoginStatus = __t.object("MyLegacyLoginStatus", {});
+export type MyLegacyLoginStatus = __Infer<typeof MyLegacyLoginStatus>;
 
 export const NetworkConfig = __t.object("NetworkConfig", {
   id: __t.u32(),

@@ -61,8 +61,10 @@ pass(`OIDC: anonymous and wrong-audience tokens are refused; the signed-in owner
 await rejects(owner.call('grant_member', anonId.identity, 'x', 'manager', 2), /Invite people by email/, 'people cannot be granted by identity');
 await owner.call('grant_member', serviceId.identity, 'Verification workers', 'service', 0);
 await owner.call('invite_member', 'Manager@Verify.test', 'Site Manager', 'manager', 2);
-assert.equal((await manager.sql('SELECT * FROM site_view')).length, 0);
 assert.equal((await owner.sql('SELECT * FROM invite_view')).length, 1);
+// A verified person's first request triggers clientConnected, which consumes the invitation.
+assert.equal((await manager.sql('SELECT * FROM site_view')).length, 3);
+assert.equal((await owner.sql('SELECT * FROM invite_view')).length, 0);
 await manager.call('join_network');
 const mgr = (await owner.sql<Mem>('SELECT * FROM member_view')).find(m => m.email === 'manager@verify.test')!;
 assert.equal(mgr.role, 'manager'); assert.equal(mgr.site_id, 2);

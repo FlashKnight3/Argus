@@ -13,6 +13,7 @@ export type { Activity, AgentRun, AgentStep, Invite, Config, Forecast, Inventory
 export function useSupply() {
   const connection = useSpacetimeDB();
   const [status, statusReady] = useTable(tables.networkStatus);
+  const [legacyLoginStatus] = useTable(tables.myLegacyLoginStatus);
   const [sites, sitesReady] = useTable(tables.siteView);
   const [members, membersReady] = useTable(tables.memberView);
   const [inventory] = useTable(tables.inventoryView);
@@ -39,6 +40,7 @@ export function useSupply() {
     identity,
     initialized: status[0]?.initialized ?? false,
     sandbox: status[0]?.sandbox ?? false,
+    legacyLoginStatus: legacyLoginStatus[0],
     me: members.find(member => member.identity.toLowerCase() === identity),
     sites: [...sites].sort((a, b) => a.id - b.id),
     members,
@@ -58,7 +60,7 @@ export function useSupply() {
     matches,
     metrics: [...metrics].sort((a, b) => a.siteId - b.siteId),
     invites: [...invites].sort((a, b) => a.email.localeCompare(b.email)),
-  }), [connection.isActive, statusReady, sitesReady, membersReady, identity, status, sites, members, inventory, stockEvents,
+  }), [connection.isActive, statusReady, sitesReady, membersReady, identity, status, legacyLoginStatus, sites, members, inventory, stockEvents,
     shortages, syncStates, transfers, forecasts, proposals, activity, configs, workers, leases, agentRuns, agentSteps, matches, metrics, invites]);
 }
 
@@ -68,6 +70,8 @@ export function useActions() {
   return {
     bootstrapNetwork: useReducer(reducers.bootstrapNetwork),
     joinNetwork: useReducer(reducers.joinNetwork),
+    legacySignIn: useReducer(reducers.legacySignIn),
+    legacySignOut: useReducer(reducers.legacySignOut),
     inviteMember: useReducer(reducers.inviteMember),
     cancelInvite: useReducer(reducers.cancelInvite),
     updateMember: useReducer(reducers.updateMember),

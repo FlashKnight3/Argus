@@ -20,6 +20,7 @@
  */
 import { schema, SenderError, table, t, ScheduleAt, Router, SyncResponse, type InferSchema, type ProcedureCtx, type ReducerCtx, type ViewCtx } from 'spacetimedb/server';
 import { sameString } from './hash';
+import { hashPassword, sameHash } from './password';
 import { collectFda, FDA_URL, type FdaPage, type FdaRow } from './fda';
 
 // ── Tables: core ledger ─────────────────────────────────────────────────────
@@ -31,7 +32,7 @@ const site = table({ name: 'site' }, {
   contact: t.string(),
   active: t.bool(),
   createdAt: t.timestamp(),
-  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  /** Tenant key: member-scoped views return only rows from this network. */
   networkId: t.u32().default(1).index('btree'),
 });
 
@@ -45,7 +46,7 @@ const member = table({ name: 'member' }, {
   createdAt: t.timestamp(),
   /** Signed-in account for this browser identity ('' for service workers and legacy members). */
   email: t.string().default(''),
-  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  /** Tenant key: member-scoped views return only rows from this network. */
   networkId: t.u32().default(1).index('btree'),
 });
 
@@ -66,7 +67,7 @@ const inventory = table({ name: 'inventory' }, {
   updatedAt: t.timestamp(),
   /** Typical days from reorder to delivery under normal supply. */
   leadTimeDays: t.f64().default(7),
-  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  /** Tenant key: member-scoped views return only rows from this network. */
   networkId: t.u32().default(1).index('btree'),
 });
 
@@ -79,7 +80,7 @@ const stockEvent = table({ name: 'stock_event' }, {
   note: t.string(),
   actor: t.string(),
   at: t.timestamp(),
-  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  /** Tenant key: member-scoped views return only rows from this network. */
   networkId: t.u32().default(1).index('btree'),
 });
 
@@ -126,7 +127,7 @@ const transfer = table({ name: 'transfer' }, {
   reservedAtMicros: t.i64().default(0n),
   /** Destination package NDC when it differs from the source (equivalent product, same RxCUI). */
   destNdc: t.string().default(''),
-  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  /** Tenant key: member-scoped views return only rows from this network. */
   networkId: t.u32().default(1).index('btree'),
 });
 
@@ -151,7 +152,7 @@ const forecast = table({ name: 'forecast' }, {
   pooled: t.bool().default(false),
   workerId: t.string().default(''),
   leaseEpoch: t.u64().default(0n),
-  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  /** Tenant key: member-scoped views return only rows from this network. */
   networkId: t.u32().default(1).index('btree'),
 });
 
@@ -170,7 +171,7 @@ const proposal = table({ name: 'proposal' }, {
   runId: t.u32().default(0),
   /** Destination package NDC when it differs from the source (equivalent product). */
   destNdc: t.string().default(''),
-  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  /** Tenant key: member-scoped views return only rows from this network. */
   networkId: t.u32().default(1).index('btree'),
 });
 
@@ -180,7 +181,7 @@ const activity = table({ name: 'activity' }, {
   action: t.string(),
   detail: t.string(),
   at: t.timestamp(),
-  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  /** Tenant key: member-scoped views return only rows from this network. */
   networkId: t.u32().default(1).index('btree'),
 });
 
@@ -197,7 +198,7 @@ const networkConfig = table({ name: 'network_config' }, {
   shortageLeadMultiplier: t.f64().default(2.5),
   /** Allow the agent to send network data to the Claude API (otherwise it uses the deterministic planner). */
   llmAllowed: t.bool().default(true),
-  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  /** Tenant key: member-scoped views return only rows from this network. */
   networkId: t.u32().default(1).index('btree'),
 });
 
@@ -210,8 +211,30 @@ const invite = table({ name: 'invite' }, {
   siteId: t.u32(),
   invitedBy: t.string(),
   createdAt: t.timestamp(),
-  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  /** Tenant key: member-scoped views return only rows from this network. */
   networkId: t.u32().default(1).index('btree'),
+});
+
+/** Retained for existing local installations. Never drop while rows remain. */
+const account = table({ name: 'account' }, {
+  email: t.string().primaryKey(),
+  name: t.string(),
+  role: t.string(),
+  siteId: t.u32(),
+  passwordHash: t.string(),
+  salt: t.string(),
+  failedAttempts: t.u32(),
+  lockedUntilMicros: t.i64(),
+  createdAt: t.timestamp(),
+  lastLoginMicros: t.i64(),
+});
+
+/** Retained with account so local credentials can report failed attempts. */
+const loginStatus = table({ name: 'login_status' }, {
+  identity: t.string().primaryKey(),
+  ok: t.bool(),
+  message: t.string(),
+  atMicros: t.i64(),
 });
 
 /** Schedule for the in-database FDA import procedure. */
@@ -229,7 +252,7 @@ const worker = table({ name: 'worker' }, {
   status: t.string(),
   startedAt: t.timestamp(),
   lastSeenMicros: t.i64(),
-  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  /** Tenant key: member-scoped views return only rows from this network. */
   networkId: t.u32().default(1).index('btree'),
 });
 
@@ -242,7 +265,7 @@ const lease = table({ name: 'lease' }, {
   epoch: t.u64(),
   expiresAtMicros: t.i64(),
   acquiredAtMicros: t.i64(),
-  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  /** Tenant key: member-scoped views return only rows from this network. */
   networkId: t.u32().default(1).index('btree'),
 });
 
@@ -275,7 +298,7 @@ const agentRun = table({ name: 'agent_run' }, {
   matches: t.u32(),
   createdAt: t.timestamp(),
   finishedAtMicros: t.i64(),
-  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  /** Tenant key: member-scoped views return only rows from this network. */
   networkId: t.u32().default(1).index('btree'),
 });
 
@@ -287,7 +310,7 @@ const agentStep = table({ name: 'agent_step' }, {
   tool: t.string(),
   content: t.string(),
   at: t.timestamp(),
-  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  /** Tenant key: member-scoped views return only rows from this network. */
   networkId: t.u32().default(1).index('btree'),
 });
 
@@ -301,7 +324,7 @@ const matchSuggestion = table({ name: 'match_suggestion' }, {
   status: t.string(),
   runId: t.u32(),
   createdAt: t.timestamp(),
-  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  /** Tenant key: member-scoped views return only rows from this network. */
   networkId: t.u32().default(1).index('btree'),
 });
 
@@ -318,13 +341,13 @@ const modelMetric = table({ name: 'model_metric' }, {
   bias: t.f64(),
   workerId: t.string(),
   computedAt: t.timestamp(),
-  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  /** Tenant key: member-scoped views return only rows from this network. */
   networkId: t.u32().default(1).index('btree'),
 });
 
 const spacetimedb = schema({
   site, member, inventory, stockEvent, shortage, syncState, transfer, forecast, proposal, activity,
-  networkConfig, worker, lease, sweepJob, opReceipt, agentRun, agentStep, matchSuggestion, modelMetric, invite, fdaSyncJob,
+  networkConfig, worker, lease, sweepJob, opReceipt, agentRun, agentStep, matchSuggestion, modelMetric, invite, account, loginStatus, fdaSyncJob,
 }, {
   env: {
     /** Comma-separated accepted OIDC issuers. Default: SpacetimeAuth. */
@@ -351,6 +374,8 @@ const NET = 1;
 const SPACETIMEAUTH_ISSUER = 'https://auth.spacetimedb.com/oidc';
 const FDA_INTERVAL_US = 6n * 3600n * SECOND;
 const HISTORY_RETENTION_US = 400n * 86_400n * SECOND;
+const MAX_LOGIN_FAILURES = 5;
+const LOCKOUT_US = 5n * 60n * SECOND;
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -388,6 +413,7 @@ function stockLog(ctx: Ctx, key: string, kind: string, delta: number, note: stri
 }
 /** A network exists once anything has been created (members may all be signed out). */
 function networkExists(ctx: Ctx): boolean {
+  for (const _a of ctx.db.account.iter()) return true;
   for (const _m of ctx.db.member.iter()) return true;
   for (const _i of ctx.db.invite.iter()) return true;
   for (const _s of ctx.db.site.iter()) return true;
@@ -552,6 +578,49 @@ function normEmail(email: string): string {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) || e.length > 200) throw new SenderError('Enter a valid email address.');
   return e;
 }
+
+/** Local migration bridge for accounts created before SpacetimeAuth. Disabled when OIDC is configured. */
+export const legacySignIn = spacetimedb.reducer({ email: t.string(), password: t.string() }, (ctx, a) => {
+  if (listEnv(ctx.env.get('OIDC_CLIENT_IDS')).length) throw new SenderError('Use SpacetimeAuth for this deployment.');
+  const email = a.email.trim().toLowerCase();
+  const acct = ctx.db.account.email.find(email);
+  const t0 = now(ctx);
+  const report = (ok: boolean, message: string) => {
+    const row = { identity: caller(ctx), ok, message, atMicros: t0 };
+    if (ctx.db.loginStatus.identity.find(row.identity)) ctx.db.loginStatus.identity.update(row);
+    else ctx.db.loginStatus.insert(row);
+  };
+  if (!acct) { report(false, 'Invalid email or password.'); return; }
+  if (acct.lockedUntilMicros > t0) { report(false, 'Too many failed attempts. Try again in 5 minutes.'); return; }
+  if (!sameHash(hashPassword(acct.salt, a.password), acct.passwordHash)) {
+    const failures = acct.failedAttempts + 1;
+    const locked = failures >= MAX_LOGIN_FAILURES;
+    ctx.db.account.email.update({ ...acct, failedAttempts: locked ? 0 : failures,
+      lockedUntilMicros: locked ? t0 + LOCKOUT_US : 0n });
+    report(false, locked ? 'Too many failed attempts. The account is locked for 5 minutes.' : 'Invalid email or password.');
+    return;
+  }
+  const old = currentMember(ctx);
+  if (old?.role === 'service') throw new SenderError('Worker identities cannot sign in.');
+  ctx.db.account.email.update({ ...acct, failedAttempts: 0, lockedUntilMicros: 0n, lastLoginMicros: t0 });
+  const m = { identity: caller(ctx), name: acct.name, role: acct.role, siteId: acct.siteId,
+    createdAt: old?.createdAt ?? ctx.timestamp, email: acct.email, networkId: NET };
+  if (old) ctx.db.member.identity.update(m);
+  else ctx.db.member.insert(m);
+  report(true, `Signed in as ${acct.name}.`);
+  log(ctx, 'account.legacy_signin', email);
+});
+
+export const legacySignOut = spacetimedb.reducer(ctx => {
+  if (listEnv(ctx.env.get('OIDC_CLIENT_IDS')).length) throw new SenderError('Use SpacetimeAuth for this deployment.');
+  const m = currentMember(ctx);
+  if (!m || m.role === 'service') return;
+  if (!m.email || !ctx.db.account.email.find(m.email)) throw new SenderError('This member has no local account to sign back in with.');
+  ctx.db.member.identity.delete(m.identity);
+  const s = ctx.db.loginStatus.identity.find(caller(ctx));
+  if (s) ctx.db.loginStatus.identity.delete(s.identity);
+  log(ctx, 'account.legacy_signout', m.email);
+});
 function validRole(ctx: Ctx, role: string, siteId: number) {
   if (!['admin', 'manager', 'viewer'].includes(role)) throw new SenderError('Role must be admin, manager, or viewer.');
   if (role !== 'admin' && !ctx.db.site.id.find(siteId)) throw new SenderError('Choose the site this person belongs to.');
@@ -1157,60 +1226,66 @@ export const dismissMatch = spacetimedb.reducer({ key: t.string() }, (ctx, a) =>
   ctx.db.matchSuggestion.key.update({ ...s, status: 'dismissed' });
 });
 
-// ── Read access: incrementally maintained, network-scoped views ─────────────
+// ── Read access: member-scoped views ─────────────
 //
-// Base tables are private. Each view is a query-builder semijoin: rows of a table whose networkId
-// matches a member row for the caller. SpacetimeDB maintains these incrementally and evaluates
-// them per subscriber; non-members get nothing.
+// Base tables are private. Views look up the caller's membership and return only that network's
+// rows. The query-builder semijoin form was returning empty subscriptions for existing members
+// after the networkId migration, so keep the access check explicit here.
 
 type Q = ViewCtx<InferSchema<typeof spacetimedb>>;
-const me = (ctx: Q) => ctx.from.member.where(m => m.identity.eq(ctx.sender.toHexString()));
-const meAdmin = (ctx: Q) => me(ctx).where(m => m.role.eq('admin'));
+const visibleNetwork = (ctx: Q) => ctx.db.member.identity.find(ctx.sender.toHexString())?.networkId;
 
 export const networkStatus = spacetimedb.anonymousView(
   { name: 'network_status', public: true },
   t.array(t.object('NetworkStatusRow', { id: t.u32(), initialized: t.bool(), sandbox: t.bool() })),
   ctx => {
     let initialized = false;
+    for (const _a of ctx.db.account.iter()) { initialized = true; break; }
     for (const _m of ctx.db.member.iter()) { initialized = true; break; }
     if (!initialized) for (const _s of ctx.db.site.iter()) { initialized = true; break; }
     return [{ id: 1, initialized, sandbox: ctx.db.networkConfig.id.find(CONFIG_ID)?.sandbox ?? false }];
   }
 );
 
+export const myLegacyLoginStatus = spacetimedb.view(
+  { name: 'my_legacy_login_status', public: true }, t.array(loginStatus.rowType),
+  ctx => { const row = ctx.db.loginStatus.identity.find(ctx.sender.toHexString()); return row ? [row] : []; }
+);
+
 export const siteView = spacetimedb.view({ name: 'site_view', public: true }, t.array(site.rowType),
-  ctx => me(ctx).rightSemijoin(ctx.from.site, (m, x) => m.networkId.eq(x.networkId)));
+  ctx => { const id = visibleNetwork(ctx); return id === undefined ? [] : [...ctx.db.site.iter()].filter(x => x.networkId === id); });
 export const memberView = spacetimedb.view({ name: 'member_view', public: true }, t.array(member.rowType),
-  ctx => me(ctx).rightSemijoin(ctx.from.member, (m, x) => m.networkId.eq(x.networkId)));
+  ctx => { const id = visibleNetwork(ctx); return id === undefined ? [] : [...ctx.db.member.iter()].filter(x => x.networkId === id); });
 export const inventoryView = spacetimedb.view({ name: 'inventory_view', public: true }, t.array(inventory.rowType),
-  ctx => me(ctx).rightSemijoin(ctx.from.inventory, (m, x) => m.networkId.eq(x.networkId)));
+  ctx => { const id = visibleNetwork(ctx); return id === undefined ? [] : [...ctx.db.inventory.iter()].filter(x => x.networkId === id); });
 export const stockEventView = spacetimedb.view({ name: 'stock_event_view', public: true }, t.array(stockEvent.rowType),
-  ctx => me(ctx).rightSemijoin(ctx.from.stockEvent, (m, x) => m.networkId.eq(x.networkId)));
+  ctx => { const id = visibleNetwork(ctx); return id === undefined ? [] : [...ctx.db.stockEvent.iter()].filter(x => x.networkId === id); });
 export const transferView = spacetimedb.view({ name: 'transfer_view', public: true }, t.array(transfer.rowType),
-  ctx => me(ctx).rightSemijoin(ctx.from.transfer, (m, x) => m.networkId.eq(x.networkId)));
+  ctx => { const id = visibleNetwork(ctx); return id === undefined ? [] : [...ctx.db.transfer.iter()].filter(x => x.networkId === id); });
 export const forecastView = spacetimedb.view({ name: 'forecast_view', public: true }, t.array(forecast.rowType),
-  ctx => me(ctx).rightSemijoin(ctx.from.forecast, (m, x) => m.networkId.eq(x.networkId)));
+  ctx => { const id = visibleNetwork(ctx); return id === undefined ? [] : [...ctx.db.forecast.iter()].filter(x => x.networkId === id); });
 export const proposalView = spacetimedb.view({ name: 'proposal_view', public: true }, t.array(proposal.rowType),
-  ctx => me(ctx).rightSemijoin(ctx.from.proposal, (m, x) => m.networkId.eq(x.networkId)));
+  ctx => { const id = visibleNetwork(ctx); return id === undefined ? [] : [...ctx.db.proposal.iter()].filter(x => x.networkId === id); });
 export const activityView = spacetimedb.view({ name: 'activity_view', public: true }, t.array(activity.rowType),
-  ctx => me(ctx).rightSemijoin(ctx.from.activity, (m, x) => m.networkId.eq(x.networkId)));
+  ctx => { const id = visibleNetwork(ctx); return id === undefined ? [] : [...ctx.db.activity.iter()].filter(x => x.networkId === id); });
 export const configView = spacetimedb.view({ name: 'config_view', public: true }, t.array(networkConfig.rowType),
-  ctx => me(ctx).rightSemijoin(ctx.from.networkConfig, (m, x) => m.networkId.eq(x.networkId)));
+  ctx => { const id = visibleNetwork(ctx); return id === undefined ? [] : [...ctx.db.networkConfig.iter()].filter(x => x.networkId === id); });
 export const workerView = spacetimedb.view({ name: 'worker_view', public: true }, t.array(worker.rowType),
-  ctx => me(ctx).rightSemijoin(ctx.from.worker, (m, x) => m.networkId.eq(x.networkId)));
+  ctx => { const id = visibleNetwork(ctx); return id === undefined ? [] : [...ctx.db.worker.iter()].filter(x => x.networkId === id); });
 export const leaseView = spacetimedb.view({ name: 'lease_view', public: true }, t.array(lease.rowType),
-  ctx => me(ctx).rightSemijoin(ctx.from.lease, (m, x) => m.networkId.eq(x.networkId)));
+  ctx => { const id = visibleNetwork(ctx); return id === undefined ? [] : [...ctx.db.lease.iter()].filter(x => x.networkId === id); });
 export const agentRunView = spacetimedb.view({ name: 'agent_run_view', public: true }, t.array(agentRun.rowType),
-  ctx => me(ctx).rightSemijoin(ctx.from.agentRun, (m, x) => m.networkId.eq(x.networkId)));
+  ctx => { const id = visibleNetwork(ctx); return id === undefined ? [] : [...ctx.db.agentRun.iter()].filter(x => x.networkId === id); });
 export const agentStepView = spacetimedb.view({ name: 'agent_step_view', public: true }, t.array(agentStep.rowType),
-  ctx => me(ctx).rightSemijoin(ctx.from.agentStep, (m, x) => m.networkId.eq(x.networkId)));
+  ctx => { const id = visibleNetwork(ctx); return id === undefined ? [] : [...ctx.db.agentStep.iter()].filter(x => x.networkId === id); });
 export const matchView = spacetimedb.view({ name: 'match_view', public: true }, t.array(matchSuggestion.rowType),
-  ctx => me(ctx).rightSemijoin(ctx.from.matchSuggestion, (m, x) => m.networkId.eq(x.networkId)));
+  ctx => { const id = visibleNetwork(ctx); return id === undefined ? [] : [...ctx.db.matchSuggestion.iter()].filter(x => x.networkId === id); });
 export const metricView = spacetimedb.view({ name: 'metric_view', public: true }, t.array(modelMetric.rowType),
-  ctx => me(ctx).rightSemijoin(ctx.from.modelMetric, (m, x) => m.networkId.eq(x.networkId)));
+  ctx => { const id = visibleNetwork(ctx); return id === undefined ? [] : [...ctx.db.modelMetric.iter()].filter(x => x.networkId === id); });
 /** Invitations (with emails) are visible to admins only. */
 export const inviteView = spacetimedb.view({ name: 'invite_view', public: true }, t.array(invite.rowType),
-  ctx => meAdmin(ctx).rightSemijoin(ctx.from.invite, (m, x) => m.networkId.eq(x.networkId)));
+  ctx => { const m = ctx.db.member.identity.find(ctx.sender.toHexString());
+    return m?.role === 'admin' ? [...ctx.db.invite.iter()].filter(x => x.networkId === m.networkId) : []; });
 
 // ── HTTP endpoints ──────────────────────────────────────────────────────────
 
