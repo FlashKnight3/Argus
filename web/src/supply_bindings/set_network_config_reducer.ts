@@ -13,4 +13,6 @@ import {
 export default {
   reservationTtlHours: __t.f64(),
   agentAutoRun: __t.bool(),
+  shortageLeadMultiplier: __t.f64(),
+  llmAllowed: __t.bool(),
 };

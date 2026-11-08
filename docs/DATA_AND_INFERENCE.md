@@ -22,7 +22,7 @@ posterior:  shape + units used in the last 30 days,  rate + observed days in tha
 
 With no baseline, no usage, and nothing to pool from, the forecast is `unknown`; no demand is invented. Thirty observed days of *zero* use count as evidence of low demand.
 
-**Stockout before resupply.** For 2,000 deterministic draws: λ ~ posterior; lead time L ~ Gamma with mean = the item's lead time (default 7 days) and CV 0.25; demand D ~ Poisson(λ·L). `p_stockout = P(D > free stock)`. If the item is linked to an FDA record **currently in shortage**, the expected lead time is multiplied by 2.5 and its CV raised to 0.6 (`fda_adjusted`). Days-of-cover p10/p50/p90 come from free / λ.
+**Stockout before resupply.** For 2,000 deterministic draws: λ ~ posterior; lead time L ~ Gamma with mean = the item's lead time (default 7 days) and CV 0.25; demand D ~ Poisson(λ·L). `p_stockout = P(D > free stock)`. If the item is linked to an FDA record **currently in shortage**, the expected lead time is multiplied by the network's *shortage resupply stretch* (default 2.5, adjustable 1–10 in System → Settings) and its CV raised to 0.6 (`fda_adjusted`). Days-of-cover p10/p50/p90 come from free / λ.
 
 **Risk:** `critical` if there's no free stock, `p_stockout ≥ 0.5`, or p10 ≤ 7 days; `watch` if `p_stockout ≥ 0.15` or p10 ≤ 21 days; otherwise `stable`.
 
@@ -36,13 +36,13 @@ Runs are queued (`manual` from the Agent page, or `auto` when the at-risk pictur
 
 **Deterministic planner** (`agent/src/planner.ts`, always available):
 - **Destinations:** critical or `p_stockout ≥ 0.5` items with known demand, most urgent first. Each is targeted at max(safety stock, 21 days of demand).
-- **Sources:** same canonical NDC and unit at another site, `stable` risk, and giveable `free − max(safety, 21 days of own demand)`. Capacity is shared across destinations; several sources can fill one destination.
+- **Sources:** same package NDC first, then **equivalent products**: a different package NDC whose linked FDA record has the same RxCUI (same drug, strength, and form). Units must match, risk must be `stable`, and the giveable amount is `free − max(safety, 21 days of own demand)`. Capacity is shared across destinations; several sources can fill one destination. Equivalent-product drafts carry `dest_ndc` and say a pharmacist must confirm the substitution; on receipt the stock is added to the destination's own NDC item. The database re-checks the RxCUI match.
 - **Skipped:** routes that already have an open transfer or a pending draft.
 - **Reported:** at-risk items with no internal source are listed for external sourcing.
 - **FDA matches** (`agent/src/ndc.ts`): an exact package NDC (local 10-digit codes are tried in all three 11-digit layouts) scores 0.97; the same labeler and product code with a different package size scores 0.75; an identical product name with a different NDC scores 0.5.
 
 **Claude** (`agent/src/llm.ts`, used when `ANTHROPIC_API_KEY` is set):
-- **Model and loop:** `claude-opus-5-5`, effort `medium` (set with `ARGUS_AGENT_EFFORT`), and a manual tool loop with strict schemas.
+- **Model and loop:** `claude-opus-5-5`, effort `medium` (set with `ARGUS_AGENT_EFFORT`), and a manual tool loop with strict schemas. An admin can turn Claude off in System → Settings; the deterministic planner is used instead.
 - **Tools:** `get_network_overview`, `get_item_detail`, `search_fda`, `propose_transfer`, and `suggest_fda_match`.
 - **Hard limits:** the tools enforce the same limits as the planner (a quantity above the source's `max_give` comes back as a tool error), and the database checks again.
 - **Refusals:** server-side refusal fallbacks are on (`fallbacks: "default"`); a refusal ends the run with no drafts.

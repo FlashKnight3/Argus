@@ -34,6 +34,22 @@ export interface WorkerOptions {
 }
 
 const micros = (t: { microsSinceUnixEpoch: bigint }) => t.microsSinceUnixEpoch;
+const CALL_TIMEOUT_MS = 20_000;
+
+/** Every reducer call settles: a call whose result never arrives is rejected instead of hanging the worker. */
+function withTimeouts<T extends object>(reducers: T): T {
+  return new Proxy(reducers, {
+    get(target, prop, receiver) {
+      const fn = Reflect.get(target, prop, receiver);
+      if (typeof fn !== 'function') return fn;
+      return (...args: unknown[]) => new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error(`Timed out waiting for the database (${String(prop)})`)), CALL_TIMEOUT_MS);
+        (fn as (...a: unknown[]) => Promise<unknown>).apply(target, args).then(
+          v => { clearTimeout(timer); resolve(v); }, e => { clearTimeout(timer); reject(e); });
+      });
+    },
+  });
+}
 const ms = (t: { microsSinceUnixEpoch: bigint }) => Number(t.microsSinceUnixEpoch / 1000n);
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -97,6 +113,8 @@ export class AgentWorker {
   // ── State accessors ───────────────────────────────────────────────────────
 
   private get db() { return this.conn!.db; }
+  private reducersCache: DbConnection['reducers'] | null = null;
+  private get reducers() { return (this.reducersCache ??= withTimeouts(this.conn!.reducers)); }
   authorized(): boolean {
     const me = [...this.db.memberView.iter()].find(m => m.identity.toLowerCase() === this.opts.identity.toLowerCase());
     return me?.role === 'service' || me?.role === 'admin';
@@ -119,7 +137,7 @@ export class AgentWorker {
     if (!this.ready || this.stopped) return;
     if (!this.authorized()) { this.log('warn', `Waiting for the service role. Grant identity ${this.opts.identity}.`); return; }
     try {
-      await this.conn!.reducers.workerHeartbeat({ workerId: this.opts.workerId, name: this.opts.name, version: VERSION });
+      await this.reducers.workerHeartbeat({ workerId: this.opts.workerId, name: this.opts.name, version: VERSION });
     } catch (e) { this.log('warn', `Heartbeat failed: ${errText(e)}`); return; }
     const workers = this.liveWorkers();
     if (!workers.includes(this.opts.workerId)) workers.push(this.opts.workerId);
@@ -129,11 +147,11 @@ export class AgentWorker {
     for (const resource of release) {
       // Hand off only between units of work; a lease in use is released on a later tick.
       if ((resource === 'agent' && this.busy.agent) || (resource === 'fda' && this.busy.fda) || (resource.startsWith('site:') && this.busy.sites)) continue;
-      try { await this.conn!.reducers.releaseLease({ workerId: this.opts.workerId, resource }); this.log('info', `Released ${resource} to ${assignment.get(resource) ?? 'nobody'}`); }
+      try { await this.reducers.releaseLease({ workerId: this.opts.workerId, resource }); this.log('info', `Released ${resource} to ${assignment.get(resource) ?? 'nobody'}`); }
       catch (e) { this.log('warn', `Release ${resource}: ${errText(e)}`); }
     }
     for (const resource of acquire) {
-      try { await this.conn!.reducers.acquireLease({ workerId: this.opts.workerId, resource }); this.log('info', `Acquired ${resource}`); this.schedule(); }
+      try { await this.reducers.acquireLease({ workerId: this.opts.workerId, resource }); this.log('info', `Acquired ${resource}`); this.schedule(); }
       catch (e) { if (!/held by/.test(errText(e))) this.log('warn', `Acquire ${resource}: ${errText(e)}`); }
     }
   }
@@ -184,6 +202,7 @@ export class AgentWorker {
     try {
       const nowMs = Date.now();
       const items = [...this.db.inventoryView.iter()];
+      const shortageMultiplier = [...this.db.configView.iter()][0]?.shortageLeadMultiplier ?? 2.5;
       const forecasts = new Map([...this.db.forecastView.iter()].map(f => [f.key, f]));
       const { usage, first } = this.usageByItem();
       const pools = poolRates(items.map(i => ({ ndc: i.ndc, baselineDaily: i.baselineDaily,
@@ -196,16 +215,16 @@ export class AgentWorker {
           const fdaActive = this.fdaActiveFor(item.shortageKey);
           const others = items.filter(o => o.ndc === item.ndc && o.siteId !== item.siteId);
           const poolRate = item.baselineDaily > 0 || !others.length ? 0 : pools.get(item.ndc) ?? 0;
-          const signature = `${item.revision}|${fdaActive}|${poolRate.toFixed(2)}|${Math.floor(nowMs / DAY_MS)}|${epoch}`;
+          const signature = `${item.revision}|${fdaActive}|${poolRate.toFixed(2)}|${shortageMultiplier}|${Math.floor(nowMs / DAY_MS)}|${epoch}`;
           const existing = forecasts.get(item.key);
           const fresh = existing && existing.inventoryRevision === item.revision && nowMs - ms(existing.computedAt) < FORECAST_MAX_AGE_MS;
           if (fresh && this.written.get(item.key) === signature) continue;
-          if (fresh && !this.written.has(item.key) && existing.workerId === this.opts.workerId && existing.leaseEpoch === epoch) continue;
+          if (fresh && !this.written.has(item.key) && existing.workerId === this.opts.workerId && existing.leaseEpoch === epoch) { this.written.set(item.key, signature); continue; }
           const f = forecastItem({ key: item.key, revision: item.revision, unit: item.unit, free: item.onHand - item.reserved,
             baselineDaily: item.baselineDaily, leadTimeDays: item.leadTimeDays, usage: usage.get(item.key) ?? [],
-            firstObservedMs: first.get(item.key) ?? null }, { nowMs, fdaActive, poolRate });
+            firstObservedMs: first.get(item.key) ?? null }, { nowMs, fdaActive, poolRate, shortageMultiplier });
           try {
-            await this.conn!.reducers.writeForecast({ workerId: this.opts.workerId, leaseEpoch: epoch, inventoryKey: item.key,
+            await this.reducers.writeForecast({ workerId: this.opts.workerId, leaseEpoch: epoch, inventoryKey: item.key,
               inventoryRevision: item.revision, ...f });
             this.written.set(item.key, signature);
             this.stats.forecasts++;
@@ -222,7 +241,7 @@ export class AgentWorker {
           if (s.windows) {
             this.lastMetric.set(site.id, nowMs); // with nothing to score yet, retry on the next change
             try {
-              await this.conn!.reducers.writeModelMetric({ workerId: this.opts.workerId, leaseEpoch: epoch, siteId: site.id,
+              await this.reducers.writeModelMetric({ workerId: this.opts.workerId, leaseEpoch: epoch, siteId: site.id,
                 itemsEvaluated: evaluated, windows: s.windows, coverage80: s.coverage80, meanAbsError: s.meanAbsError, bias: s.bias });
             } catch (e) { if (!this.fenced(e)) this.log('warn', `Metric site ${site.id}: ${errText(e)}`); }
           }
@@ -240,14 +259,15 @@ export class AgentWorker {
       const ok = f && f.inventoryRevision === i.revision;
       return { key: i.key, siteId: i.siteId, ndc: i.ndc, unit: i.unit, label: i.label, free: i.onHand - i.reserved,
         safetyStock: i.safetyStock, rate: ok ? f.ratePerDay : 0, risk: ok ? f.risk : 'unknown', pStockout: ok ? f.pStockout : 0,
-        daysP10: ok ? f.daysP10 : 0, revision: i.revision };
+        daysP10: ok ? f.daysP10 : 0, revision: i.revision,
+        rxcui: i.shortageKey ? this.db.shortage.key.find(i.shortageKey)?.rxcui ?? '' : '' };
     });
   }
 
   private blockedRoutes(): Set<string> {
     const blocked = new Set<string>();
-    for (const t of this.db.transferView.iter()) if (!['received', 'cancelled'].includes(t.status)) blocked.add(`${t.destSiteId}:${t.ndc}`);
-    for (const p of this.db.proposalView.iter()) if (p.status === 'pending') blocked.add(`${p.destSiteId}:${p.ndc}`);
+    for (const t of this.db.transferView.iter()) if (!['received', 'cancelled'].includes(t.status)) blocked.add(`${t.destSiteId}:${t.destNdc || t.ndc}`);
+    for (const p of this.db.proposalView.iter()) if (p.status === 'pending') blocked.add(`${p.destSiteId}:${p.destNdc || p.ndc}`);
     return blocked;
   }
 
@@ -285,13 +305,14 @@ export class AgentWorker {
         if (fingerprint && !seen && fingerprint !== this.lastAutoSignature && sinceLastMs > AUTO_RUN_COOLDOWN_MS && Date.now() - this.lastAutoAt > AUTO_RUN_COOLDOWN_MS) {
           this.lastAutoSignature = fingerprint;
           this.lastAutoAt = Date.now();
-          try { await this.conn!.reducers.requestAutoAgentRun({ workerId: this.opts.workerId, leaseEpoch: epoch, note: `At-risk items changed [${fingerprint}]` }); }
+          try { await this.reducers.requestAutoAgentRun({ workerId: this.opts.workerId, leaseEpoch: epoch, note: `At-risk items changed [${fingerprint}]` }); }
           catch (e) { if (!this.fenced(e)) this.log('warn', `Auto run: ${errText(e)}`); }
         }
         return;
       }
-      const mode = this.opts.mode === 'rules' || !this.opts.llm ? 'rules' : 'llm';
-      try { await this.conn!.reducers.claimAgentRun({ runId: queued.id, workerId: this.opts.workerId, leaseEpoch: epoch, mode }); }
+      const llmAllowed = [...this.db.configView.iter()][0]?.llmAllowed ?? true;
+      const mode = this.opts.mode === 'rules' || !this.opts.llm || !llmAllowed ? 'rules' : 'llm';
+      try { await this.reducers.claimAgentRun({ runId: queued.id, workerId: this.opts.workerId, leaseEpoch: epoch, mode }); }
       catch (e) { if (!this.fenced(e)) this.log('warn', `Claim run #${queued.id}: ${errText(e)}`); return; }
       this.stats.runs++;
       this.log('info', `Running agent run #${queued.id} (${queued.trigger}, ${mode}${mode === 'llm' ? `, ${AGENT_MODEL}` : ''})`);
@@ -311,7 +332,7 @@ export class AgentWorker {
         status = 'failed';
         summary = errText(e);
       }
-      try { await this.conn!.reducers.finishAgentRun({ runId: queued.id, workerId: this.opts.workerId, leaseEpoch: epoch, status, summary }); }
+      try { await this.reducers.finishAgentRun({ runId: queued.id, workerId: this.opts.workerId, leaseEpoch: epoch, status, summary }); }
       catch (e) { if (!this.fenced(e)) this.log('warn', `Finish run #${queued.id}: ${errText(e)}`); }
     } finally {
       this.busy.agent = false;
@@ -327,11 +348,11 @@ export class AgentWorker {
     const drafts = planTransfers(items, this.blockedRoutes());
     let made = 0;
     for (const d of drafts) {
-      await tools.step('tool_call', 'propose_transfer', JSON.stringify({ source_site_id: d.sourceSiteId, dest_site_id: d.destSiteId, ndc: d.ndc, quantity: d.quantity }));
-      try { const out = await tools.proposeTransfer({ source_site_id: d.sourceSiteId, dest_site_id: d.destSiteId, ndc: d.ndc, quantity: d.quantity, reason: d.reason }); made++; await tools.step('tool_result', 'propose_transfer', out); }
+      await tools.step('tool_call', 'propose_transfer', JSON.stringify({ source_site_id: d.sourceSiteId, dest_site_id: d.destSiteId, ndc: d.ndc, dest_ndc: d.destNdc ?? '', quantity: d.quantity }));
+      try { const out = await tools.proposeTransfer({ source_site_id: d.sourceSiteId, dest_site_id: d.destSiteId, ndc: d.ndc, dest_ndc: d.destNdc ?? '', quantity: d.quantity, reason: d.reason }); made++; await tools.step('tool_result', 'propose_transfer', out); }
       catch (e) { if (/Fenced/.test(errText(e))) throw e; await tools.step('tool_result', 'propose_transfer', `Rejected: ${errText(e)}`); }
     }
-    const unmet = atRisk.filter(i => !drafts.some(d => d.destSiteId === i.siteId && d.ndc === i.ndc) && !this.blockedRoutes().has(`${i.siteId}:${i.ndc}`));
+    const unmet = atRisk.filter(i => !drafts.some(d => d.destSiteId === i.siteId && (d.destNdc ?? d.ndc) === i.ndc) && !this.blockedRoutes().has(`${i.siteId}:${i.ndc}`));
     if (unmet.length) await tools.step('thought', '', `No site has spare stock for: ${unmet.map(i => `${i.label} at site ${i.siteId}`).join('; ')}. External sourcing needed.`);
     let matches = 0;
     const existing = new Set([...this.db.matchView.iter()].map(m => m.key));
@@ -350,7 +371,7 @@ export class AgentWorker {
   }
 
   toolbox(runId: number, epoch: bigint): AgentToolbox {
-    const r = () => this.conn!.reducers;
+    const r = () => this.reducers;
     const base = { runId, workerId: this.opts.workerId, leaseEpoch: epoch };
     const sites = () => new Map([...this.db.siteView.iter()].map(s => [s.id, s.name]));
     return {
@@ -364,7 +385,7 @@ export class AgentWorker {
             const row = [...inv].find(x => x.key === i.key);
             const s = row?.shortageKey ? this.db.shortage.key.find(row.shortageKey) : undefined;
             return { inventory_key: i.key, site_id: i.siteId, site: names.get(i.siteId), label: i.label, ndc: i.ndc, unit: i.unit,
-              free: i.free, safety_stock: i.safetyStock, rate_per_day: i.rate, p_stockout: i.pStockout, days_p10: i.daysP10, risk: i.risk,
+              free: i.free, safety_stock: i.safetyStock, rate_per_day: i.rate, p_stockout: i.pStockout, days_p10: i.daysP10, risk: i.risk, rxcui: i.rxcui || null,
               linked_fda: s ? { key: s.key, status: s.status, generic: s.genericName } : null, max_give: maxGive(i) };
           }),
           open_transfers: [...this.db.transferView.iter()].filter(t => !['received', 'cancelled'].includes(t.status))
@@ -401,16 +422,19 @@ export class AgentWorker {
       proposeTransfer: async a => {
         const items = this.planItems();
         const code = digits(a.ndc);
+        const destCode = a.dest_ndc ? digits(a.dest_ndc) : code;
         const source = items.find(i => i.siteId === a.source_site_id && i.ndc === code);
-        const dest = items.find(i => i.siteId === a.dest_site_id && i.ndc === code);
-        if (!source || !dest) throw new Error('Both sites must stock this exact NDC.');
+        const dest = items.find(i => i.siteId === a.dest_site_id && i.ndc === destCode);
+        if (!source || !dest) throw new Error('Source must stock ndc and destination must stock dest_ndc (or ndc).');
+        if (destCode !== code && !(source.rxcui && source.rxcui === dest.rxcui)) throw new Error('Different NDCs are only allowed for equivalent products with the same RxCUI.');
         if (source.unit.trim().toLowerCase() !== dest.unit.trim().toLowerCase()) throw new Error('Units differ between sites.');
         const limit = maxGive(source);
         if (!(a.quantity >= 1) || a.quantity > limit) throw new Error(`Quantity must be between 1 and the source max_give (${limit}).`);
-        if (this.blockedRoutes().has(`${dest.siteId}:${code}`)) throw new Error('An open transfer or pending draft already covers this destination product.');
+        if (this.blockedRoutes().has(`${dest.siteId}:${destCode}`)) throw new Error('An open transfer or pending draft already covers this destination product.');
         const key = `${runId}-${source.key}-${dest.key}`.replace(/[^a-zA-Z0-9:-]/g, '');
-        await r().proposeTransfer({ ...base, key, sourceSiteId: source.siteId, destSiteId: dest.siteId, packageNdc: code, quantity: Math.floor(a.quantity), reason: a.reason });
-        return `Drafted ${Math.floor(a.quantity)} ${source.unit} from site ${source.siteId} to site ${dest.siteId}.`;
+        await r().proposeTransfer({ ...base, key, sourceSiteId: source.siteId, destSiteId: dest.siteId, packageNdc: code,
+          destPackageNdc: destCode !== code ? destCode : '', quantity: Math.floor(a.quantity), reason: a.reason });
+        return `Drafted ${Math.floor(a.quantity)} ${source.unit} from site ${source.siteId} to site ${dest.siteId}${destCode !== code ? ' (equivalent product)' : ''}.`;
       },
       suggestMatch: async a => {
         if (![...this.db.inventoryView.iter()].find(i => i.key === a.inventory_key)) throw new Error('No such inventory key.');
@@ -441,11 +465,11 @@ export class AgentWorker {
       const runId = `${new Date().toISOString().replace(/[-:.]/g, '')}-${this.opts.workerId}`;
       this.myFdaRun = runId;
       const base = { workerId: this.opts.workerId, leaseEpoch: epoch };
-      await this.conn!.reducers.beginFdaSync({ runId, ...base });
+      await this.reducers.beginFdaSync({ runId, ...base });
       for (let i = 0; i < rows.length; i += 200) {
-        await this.conn!.reducers.importFdaBatch({ runId, rowsJson: JSON.stringify(rows.slice(i, i + 200)), ...base });
+        await this.reducers.importFdaBatch({ runId, rowsJson: JSON.stringify(rows.slice(i, i + 200)), ...base });
       }
-      await this.conn!.reducers.finishFdaSync({ runId, feedDate, ...base });
+      await this.reducers.finishFdaSync({ runId, feedDate, ...base });
       this.stats.fdaImports++;
       this.log('info', `Imported ${rows.length} FDA records (feed ${feedDate})`);
     } catch (e) {

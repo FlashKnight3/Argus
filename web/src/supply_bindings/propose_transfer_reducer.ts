@@ -18,6 +18,7 @@ export default {
   sourceSiteId: __t.u32(),
   destSiteId: __t.u32(),
   packageNdc: __t.string(),
+  destPackageNdc: __t.string(),
   quantity: __t.f64(),
   reason: __t.string(),
 };

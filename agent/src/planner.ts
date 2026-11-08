@@ -20,6 +20,8 @@ export interface PlanItem {
   pStockout: number;
   daysP10: number;
   revision: number;
+  /** RxCUI of the linked FDA record; items sharing one are equivalent products across package NDCs. */
+  rxcui?: string;
 }
 
 export interface Draft {
@@ -29,6 +31,8 @@ export interface Draft {
   ndc: string;
   quantity: number;
   reason: string;
+  /** Destination package NDC when it differs from the source's (equivalent product). */
+  destNdc?: string;
 }
 
 /** Largest quantity a source can give without dropping below safety stock or KEEP_DAYS of cover. */
@@ -41,6 +45,12 @@ export function needOf(dest: Pick<PlanItem, 'free' | 'safetyStock' | 'rate' | 'r
   const atRisk = dest.risk === 'critical' || dest.pStockout >= 0.5;
   if (!atRisk || dest.rate <= 0) return 0;
   return Math.max(0, Math.ceil(Math.max(dest.safetyStock, dest.rate * TARGET_DAYS) - dest.free));
+}
+
+/** Same package NDC, or the same drug (RxCUI from the linked FDA record) in a different package. */
+export function sameProduct(a: PlanItem, b: PlanItem): 'exact' | 'equivalent' | false {
+  if (a.ndc === b.ndc) return 'exact';
+  return a.rxcui && a.rxcui === b.rxcui ? 'equivalent' : false;
 }
 
 export function draftKey(source: PlanItem, dest: PlanItem, quantity: number): string {
@@ -59,18 +69,23 @@ export function planTransfers(items: readonly PlanItem[], blocked: ReadonlySet<s
   const drafts: Draft[] = [];
   for (const dest of dests) {
     let need = needOf(dest);
-    const sources = items.filter(s => s.ndc === dest.ndc && s.siteId !== dest.siteId
+    // Exact-NDC donors first, then equivalent products (same RxCUI); most spare stock first within each.
+    const sources = items.filter(s => s.siteId !== dest.siteId && sameProduct(s, dest)
       && s.unit.trim().toLowerCase() === dest.unit.trim().toLowerCase() && (capacity.get(s.key) ?? 0) >= 1)
-      .sort((a, b) => (capacity.get(b.key) ?? 0) - (capacity.get(a.key) ?? 0));
+      .sort((a, b) => (sameProduct(a, dest) === 'exact' ? 0 : 1) - (sameProduct(b, dest) === 'exact' ? 0 : 1)
+        || (capacity.get(b.key) ?? 0) - (capacity.get(a.key) ?? 0));
     for (const source of sources) {
       if (need < 1) break;
       const quantity = Math.min(need, capacity.get(source.key) ?? 0);
       if (quantity < 1) continue;
       capacity.set(source.key, (capacity.get(source.key) ?? 0) - quantity);
       need -= quantity;
-      drafts.push({ key: draftKey(source, dest, quantity), sourceSiteId: source.siteId, destSiteId: dest.siteId, ndc: dest.ndc, quantity,
+      const equivalent = source.ndc !== dest.ndc;
+      drafts.push({ key: draftKey(source, dest, quantity), sourceSiteId: source.siteId, destSiteId: dest.siteId, ndc: source.ndc, quantity,
+        ...(equivalent ? { destNdc: dest.ndc } : {}),
         reason: `Site ${dest.siteId} has ${dest.free} ${dest.unit} free, ${Math.round(dest.pStockout * 100)}% stockout risk before resupply `
           + `(p10 ${dest.daysP10} days). Site ${source.siteId} keeps ≥${KEEP_DAYS} days of its own demand after sending ${quantity}. `
+          + (equivalent ? `Equivalent product: NDC ${source.ndc} (same RxCUI ${source.rxcui}) for ${dest.ndc}; a pharmacist must confirm the substitution. ` : '')
           + 'Draft only; both managers must act.' });
     }
   }

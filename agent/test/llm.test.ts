@@ -39,8 +39,8 @@ describe('Claude planning loop', () => {
     const { client, calls } = fakeClient([
       { stop_reason: 'tool_use', content: [{ type: 'tool_use', id: 't1', name: 'get_network_overview', input: {} }] },
       { stop_reason: 'tool_use', content: [{ type: 'text', text: 'Site 2 has surplus.' },
-        { type: 'tool_use', id: 't2', name: 'propose_transfer', input: { source_site_id: 2, dest_site_id: 1, ndc: 'n', quantity: 80, reason: 'r' } }] },
-      { stop_reason: 'tool_use', content: [{ type: 'tool_use', id: 't3', name: 'propose_transfer', input: { source_site_id: 2, dest_site_id: 1, ndc: 'n', quantity: 40, reason: 'r' } }] },
+        { type: 'tool_use', id: 't2', name: 'propose_transfer', input: { source_site_id: 2, dest_site_id: 1, ndc: 'n', dest_ndc: '', quantity: 80, reason: 'r' } }] },
+      { stop_reason: 'tool_use', content: [{ type: 'tool_use', id: 't3', name: 'propose_transfer', input: { source_site_id: 2, dest_site_id: 1, ndc: 'n', dest_ndc: '', quantity: 40, reason: 'r' } }] },
       { stop_reason: 'end_turn', content: [{ type: 'text', text: 'Drafted 40 units from site 2.' }] },
     ]);
     const { tb, steps } = toolbox();

@@ -4,7 +4,7 @@
 
 ```bash
 npm run typecheck   # module, web, and agent
-npm test            # agent unit tests (25) + web tests (2)
+npm test            # agent unit tests (26) + web tests (9: search suggestions, CSV import, FDA matching)
 npm run build
 ```
 
@@ -26,20 +26,22 @@ npm run test:integration   # needs SpacetimeDB on :3000; uses the live FDA feed
 This publishes the module to a fresh `argus-supply-verify-<timestamp>` database, runs two real workers in-process, and deletes the database afterwards. It checks, in order:
 
 1. Base tables are private; views show members everything and outsiders nothing.
-2. Five leases split across two workers.
-3. The full FDA feed is imported exactly once.
-4. Forecasts arrive within seconds of an inventory change; the destination is critical.
-5. A replayed operation ID is applied once.
-6. A stale-revision edit is rejected as a conflict.
-7. A stale epoch or a non-holder write is fenced.
-8. An automatic agent run drafts a transfer within source surplus and suggests the FDA link, with a trace.
-9. The service identity cannot approve stock movements.
-10. Match acceptance and request → reserve → ship → receive work, and the destination count rises.
-11. The linked item is re-forecast with an FDA-stretched lead time.
-12. The scheduled sweep releases an expired reservation.
-13. A killed worker's site lease moves to the survivor at a higher epoch, which resumes forecasting.
+2. Accounts: a wrong password shows nothing; the right one grants access scoped to the role (a manager can't create sites); 5 failures lock the account; an admin reset unlocks it; sign-out removes access.
+3. Five leases split across two workers.
+4. The full FDA feed is imported exactly once.
+5. Forecasts arrive within seconds of an inventory change; the destination is critical.
+6. A replayed operation ID is applied once.
+7. A stale-revision edit is rejected as a conflict.
+8. A stale epoch or a non-holder write is fenced.
+9. An automatic agent run drafts a transfer within source surplus and suggests the FDA link, with a trace.
+10. The service identity cannot approve stock movements.
+11. Match acceptance and request → reserve → ship → receive work, and the destination count rises.
+12. The linked item is re-forecast with an FDA-stretched lead time.
+13. The scheduled sweep releases an expired reservation.
+14. An equivalent product (two real FDA packages sharing an RxCUI) is drafted across NDCs, accepted, shipped, and received into the destination's own NDC item.
+15. A killed worker's site lease moves to the survivor at a higher epoch, which resumes forecasting.
 
-Last run (2026-11-07): all 13 passed; 1,581 FDA records; failover in 10.7 s (epoch 2 → 3).
+Last run (2026-11-07): all 15 passed; 1,581 FDA records; failover in 11.5 s (epoch 1 → 2).
 
 ## Manual checks performed
 

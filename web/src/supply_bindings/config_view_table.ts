@@ -15,4 +15,6 @@ export default __t.row({
   sandbox: __t.bool(),
   reservationTtlHours: __t.f64().name("reservation_ttl_hours"),
   agentAutoRun: __t.bool().name("agent_auto_run"),
+  shortageLeadMultiplier: __t.f64().name("shortage_lead_multiplier"),
+  llmAllowed: __t.bool().name("llm_allowed"),
 });

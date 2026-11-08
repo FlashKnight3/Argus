@@ -20,4 +20,5 @@ export default __t.row({
   status: __t.string(),
   createdAt: __t.timestamp().name("created_at"),
   runId: __t.u32().name("run_id"),
+  destNdc: __t.string().name("dest_ndc"),
 });

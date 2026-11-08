@@ -10,6 +10,8 @@ DB_NAME="${ARGUS_SUPPLY_DB_NAME:-$([ "$SANDBOX" = 1 ] && echo argus-supply-sandb
 WORKERS="${ARGUS_WORKERS:-2}"
 LOG_DIR="$ROOT/logs/supply-$(date +%Y%m%d-%H%M%S)-$$"
 mkdir -p "$LOG_DIR"
+# Keep only the five most recent run logs.
+ls -1dt "$ROOT"/logs/supply-* 2>/dev/null | tail -n +6 | while read -r old; do rm -rf "$old"; done
 PIDS=()
 cleanup() {
   printf '\nStopping Argus Supply…\n'

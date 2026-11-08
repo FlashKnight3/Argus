@@ -1,60 +1,92 @@
 import { useState } from 'react';
-import { ArrowRight, Check, PackageCheck, Plus, Send, Truck, X } from 'lucide-react';
-import { Empty, Panel, Pill, canManage, date, errorText, number, siteName } from './ui';
+import { ArrowRight, Plus } from 'lucide-react';
+import { Empty, Modal, PageHead, Pill, Tabs, canManage, date, errorText, number, siteName, type Tone } from './ui';
 import { newOpId, type OfflineQueue } from './offline';
 import type { Notify } from './App';
 import type { SupplyActions, SupplyState, Transfer } from './useSupply';
 
-function statusTone(status: string): 'neutral' | 'good' | 'watch' | 'info' {
-  return status === 'received' ? 'good' : status === 'cancelled' ? 'neutral' : status === 'requested' ? 'watch' : 'info';
-}
+type Tab = 'drafts' | 'active' | 'history';
+const statusTone = (s: string): Tone => s === 'received' ? 'good' : s === 'cancelled' ? 'neutral' : s === 'requested' ? 'watch' : 'info';
+const statusLabel: Record<string, string> = { requested: 'Requested', reserved: 'Reserved', shipped: 'Shipped', received: 'Received', cancelled: 'Cancelled' };
 
 export function TransfersPage({ state, actions, queue, notify }: { state: SupplyState; actions: SupplyActions; queue: OfflineQueue; notify: Notify }) {
+  const drafts = state.proposals.filter(p => p.status === 'pending');
+  const active = state.transfers.filter(t => !['received', 'cancelled'].includes(t.status));
+  const history = state.transfers.filter(t => ['received', 'cancelled'].includes(t.status));
+  const [tab, setTab] = useState<Tab>(drafts.length ? 'drafts' : 'active');
+  const [busy, setBusy] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [sourceSiteId, setSourceSiteId] = useState(0);
-  const [destSiteId, setDestSiteId] = useState(state.me?.role === 'admin' ? 0 : state.me?.siteId ?? 0);
+  const editable = state.me?.role === 'admin' || state.me?.role === 'manager';
+  const unit = (siteId: number, ndc: string) => state.inventory.find(i => i.key === `${siteId}:${ndc}`)?.unit ?? 'units';
+  const label = (ndc: string) => state.inventory.find(i => i.ndc === ndc)?.label ?? `NDC ${ndc}`;
+
+  const act = async (p: Promise<void>, ok: string) => {
+    setBusy(true);
+    try { await p; notify(ok); } catch (e) { notify(errorText(e), true); } finally { setBusy(false); }
+  };
+  const next = (t: Transfer) => {
+    if (t.status === 'requested' && canManage(state.me, t.sourceSiteId)) return <button className="link" disabled={busy} onClick={() => act(actions.approveTransfer({ transferId: t.id }), `Transfer #${t.id} reserved.`)}>Reserve stock</button>;
+    if (t.status === 'reserved' && canManage(state.me, t.sourceSiteId)) return <button className="link" disabled={busy} onClick={() => act(actions.shipTransfer({ transferId: t.id }), `Transfer #${t.id} shipped.`)}>Mark shipped</button>;
+    if (t.status === 'shipped' && canManage(state.me, t.destSiteId)) return <button className="link" disabled={busy} onClick={() => act(actions.receiveTransfer({ transferId: t.id }), `Transfer #${t.id} received.`)}>Confirm receipt</button>;
+    return <span className="muted" style={{ fontSize: 12 }}>Waiting on {t.status === 'shipped' ? siteName(state.sites, t.destSiteId) : siteName(state.sites, t.sourceSiteId)}</span>;
+  };
+
+  return <>
+    <PageHead title="Transfers" subtitle="Move stock between your sites. The agent drafts; people request, reserve, ship, and receive."
+      right={editable && <button className="fab" title="Request stock" onClick={() => setShowForm(true)}><Plus size={20}/></button>} />
+    <Tabs value={tab} onChange={setTab} tabs={[{ id: 'drafts', label: 'Agent drafts', count: drafts.length }, { id: 'active', label: 'In progress', count: active.length }, { id: 'history', label: 'History' }]} />
+    {tab !== 'drafts' && <div className="flow"><span><span className="n">1</span><b>Request</b></span><ArrowRight size={14}/><span><span className="n">2</span><b>Reserve</b> at source</span><ArrowRight size={14}/><span><span className="n">3</span><b>Ship</b></span><ArrowRight size={14}/><span><span className="n">4</span><b>Receive</b> at destination</span>
+      {state.config?.reservationTtlHours ? <span className="muted">· unshipped reservations release after {state.config.reservationTtlHours} h</span> : null}</div>}
+
+    {tab === 'drafts' && (drafts.length ? <div className="table-wrap"><table className="table"><thead><tr><th>Product</th><th>From → To</th><th className="num">Quantity</th><th>Why</th><th className="actions">Actions</th></tr></thead><tbody>
+      {drafts.map(p => <tr key={p.key}><td><strong title={label(p.ndc)}>{label(p.ndc)}</strong><small>NDC {p.ndc}{p.destNdc ? ` → ${p.destNdc}` : ''}</small>{p.destNdc && <Pill tone="watch">Equivalent product</Pill>}</td>
+        <td>{siteName(state.sites, p.sourceSiteId)} → {siteName(state.sites, p.destSiteId)}</td><td className="num">{number(p.quantity)} <small>{unit(p.sourceSiteId, p.ndc)}</small></td>
+        <td style={{ maxWidth: 360 }}><small style={{ color: 'var(--text-2)' }}>{p.reason}</small></td>
+        <td className="actions">{canManage(state.me, p.destSiteId) ? <><button className="link" disabled={busy} onClick={() => act(actions.acceptProposal({ key: p.key }), 'Request created. The source site can now reserve it.')}>Request</button>
+          <button className="link danger" disabled={busy} onClick={() => act(actions.dismissProposal({ key: p.key }), 'Draft dismissed.')}>Dismiss</button></> : <span className="muted" style={{ fontSize: 12 }}>For {siteName(state.sites, p.destSiteId)}</span>}</td></tr>)}
+    </tbody></table></div> : <div className="card"><Empty title="No drafts" detail="The agent drafts a transfer when one site is running low and another has stock it can spare." /></div>)}
+
+    {tab === 'active' && (active.length ? <div className="table-wrap"><table className="table"><thead><tr><th>#</th><th>Product</th><th>From → To</th><th className="num">Quantity</th><th>Status</th><th className="actions">Next step</th></tr></thead><tbody>
+      {active.map(t => <tr key={t.id}><td className="muted">{t.id}</td><td><strong title={t.label}>{t.label}</strong><small>NDC {t.ndc}{t.destNdc ? ` → ${t.destNdc}` : ''} · {date(t.createdAt)}</small></td>
+        <td>{siteName(state.sites, t.sourceSiteId)} → {siteName(state.sites, t.destSiteId)}</td><td className="num">{number(t.quantity)}</td>
+        <td><Pill tone={statusTone(t.status)}>{statusLabel[t.status]}</Pill></td>
+        <td className="actions">{next(t)}{['requested', 'reserved'].includes(t.status) && (canManage(state.me, t.sourceSiteId) || canManage(state.me, t.destSiteId)) &&
+          <button className="link danger" disabled={busy} onClick={() => act(actions.cancelTransfer({ transferId: t.id }), `Transfer #${t.id} cancelled.`)}>Cancel</button>}</td></tr>)}
+    </tbody></table></div> : <div className="card"><Empty title="Nothing in progress" detail="Requests you create, or agent drafts you accept, show up here." /></div>)}
+
+    {tab === 'history' && (history.length ? <div className="table-wrap"><table className="table"><thead><tr><th>#</th><th>Product</th><th>From → To</th><th className="num">Quantity</th><th>Status</th><th>Updated</th></tr></thead><tbody>
+      {history.slice(0, 100).map(t => <tr key={t.id}><td className="muted">{t.id}</td><td><strong title={t.label}>{t.label}</strong><small>{t.reason.slice(0, 80)}</small></td><td>{siteName(state.sites, t.sourceSiteId)} → {siteName(state.sites, t.destSiteId)}</td>
+        <td className="num">{number(t.quantity)}</td><td><Pill tone={statusTone(t.status)}>{statusLabel[t.status]}</Pill></td><td><small>{date(t.updatedAt)}</small></td></tr>)}
+    </tbody></table></div> : <div className="card"><Empty title="No history yet" detail="Completed and cancelled transfers appear here." /></div>)}
+
+    {showForm && <RequestForm state={state} queue={queue} notify={notify} onClose={() => setShowForm(false)} />}
+  </>;
+}
+
+function RequestForm({ state, queue, notify, onClose }: { state: SupplyState; queue: OfflineQueue; notify: Notify; onClose: () => void }) {
+  const [source, setSource] = useState(0);
+  const [dest, setDest] = useState(state.me?.role === 'admin' ? 0 : state.me?.siteId ?? 0);
   const [ndc, setNdc] = useState('');
-  const [quantity, setQuantity] = useState('');
+  const [qty, setQty] = useState('');
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
-  const open = state.transfers.filter(row => !['received', 'cancelled'].includes(row.status));
-  const finished = state.transfers.filter(row => ['received', 'cancelled'].includes(row.status));
-  const pending = state.proposals.filter(row => row.status === 'pending');
-  const sources = state.inventory.filter(row => row.siteId === sourceSiteId);
-
-  const act = async (promise: Promise<void>, success: string): Promise<boolean> => {
-    setBusy(true);
-    try { await promise; notify(success); return true; }
-    catch (error) { notify(errorText(error), true); return false; }
-    finally { setBusy(false); }
-  };
-  const create = async () => {
+  const products = state.inventory.filter(i => i.siteId === source);
+  const save = async () => {
     setBusy(true);
     try {
-      const outcome = await queue.submit('createTransfer', { opId: newOpId(), sourceSiteId, destSiteId, packageNdc: ndc, quantity: Number(quantity), reason },
-        `Request ${quantity} of NDC ${ndc}`);
-      notify(outcome === 'queued' ? 'Offline: request queued and will be sent on reconnect.' : 'Transfer request created. The source site can reserve it.');
-      setShowForm(false); setQuantity(''); setReason('');
-    } catch (error) { notify(errorText(error), true); }
-    finally { setBusy(false); }
+      const out = await queue.submit('createTransfer', { opId: newOpId(), sourceSiteId: source, destSiteId: dest, packageNdc: ndc, quantity: Number(qty), reason }, `Request ${qty} of NDC ${ndc}`);
+      notify(out === 'queued' ? 'Saved offline; the request is sent when you reconnect.' : 'Request sent. The source site can now reserve it.');
+      onClose();
+    } catch (e) { notify(errorText(e), true); } finally { setBusy(false); }
   };
-  const actionFor = (row: Transfer) => {
-    if (row.status === 'requested' && canManage(state.me, row.sourceSiteId)) return <button className="button primary small" disabled={busy} onClick={() => act(actions.approveTransfer({ transferId: row.id }), `Transfer #${row.id} reserved.`)}><Check size={15}/> Reserve stock</button>;
-    if (row.status === 'reserved' && canManage(state.me, row.sourceSiteId)) return <button className="button primary small" disabled={busy} onClick={() => act(actions.shipTransfer({ transferId: row.id }), `Transfer #${row.id} shipped.`)}><Truck size={15}/> Mark shipped</button>;
-    if (row.status === 'shipped' && canManage(state.me, row.destSiteId)) return <button className="button primary small" disabled={busy} onClick={() => act(actions.receiveTransfer({ transferId: row.id }), `Transfer #${row.id} received into inventory.`)}><PackageCheck size={15}/> Confirm receipt</button>;
-    return null;
-  };
-
-  return <div className="page-stack"><div className="page-intro"><div><div className="eyebrow">MULTI-SITE COORDINATION</div><h1>Transfers</h1><p>Stock moves through explicit requests, reservations, shipment, and receipt. No agent can approve a transfer.{state.config?.reservationTtlHours ? ` Unshipped reservations are released automatically after ${state.config.reservationTtlHours} h.` : ''}</p></div>{state.me?.role !== 'viewer' && <button className="button primary" onClick={() => setShowForm(true)}><Plus size={16}/> Request stock</button>}</div>
-    <div className="transfer-flow"><div><span>01</span><strong>Request</strong><small>Destination asks</small></div><ArrowRight size={18}/><div><span>02</span><strong>Reserve</strong><small>Source confirms</small></div><ArrowRight size={18}/><div><span>03</span><strong>Ship</strong><small>Source releases</small></div><ArrowRight size={18}/><div><span>04</span><strong>Receive</strong><small>Destination counts</small></div></div>
-    {pending.length > 0 && <Panel eyebrow="AGENT / HUMAN REVIEW" title={`${pending.length} transfer draft${pending.length === 1 ? '' : 's'}`}><div className="proposal-grid">{pending.map(item => <div className="proposal-card" key={item.key}><div className="proposal-head"><Pill tone="info">Agent draft{item.runId ? ` · run #${item.runId}` : ''}</Pill><small>{date(item.createdAt)}</small></div><h3>{number(item.quantity, 1)} units · NDC {item.ndc}</h3><p>{siteName(state.sites, item.sourceSiteId)} <ArrowRight size={14}/> {siteName(state.sites, item.destSiteId)}</p><div className="proposal-reason">{item.reason}</div><div className="proposal-actions">{canManage(state.me, item.destSiteId) ? <><button className="button primary small" disabled={busy} onClick={() => act(actions.acceptProposal({ key: item.key }), 'Draft accepted as a request. Source approval is still required.')}>Create request</button><button className="button ghost small" disabled={busy} onClick={() => act(actions.dismissProposal({ key: item.key }), 'Draft dismissed.')}>Dismiss</button></> : <small>Awaiting destination manager</small>}</div></div>)}</div></Panel>}
-    <Panel eyebrow="OPEN / AUDITABLE" title={`${open.length} active transfers`}>
-      {open.length ? <div className="transfer-list">{open.map(row => <div className="transfer-card" key={row.id}><div className="transfer-icon"><Truck size={20}/></div><div className="transfer-main"><div className="transfer-title"><strong>#{row.id} · {row.label}</strong><Pill tone={statusTone(row.status)}>{row.status}</Pill></div><div className="transfer-route">{siteName(state.sites, row.sourceSiteId)} <ArrowRight size={14}/> {siteName(state.sites, row.destSiteId)}</div><small>{number(row.quantity, 1)} units · NDC {row.ndc} · {row.reason || 'No note'} · {date(row.createdAt)}</small></div><div className="transfer-actions">{actionFor(row)}{['requested', 'reserved'].includes(row.status) && (canManage(state.me, row.sourceSiteId) || canManage(state.me, row.destSiteId)) && <button className="icon-button" disabled={busy} title="Cancel transfer" onClick={() => act(actions.cancelTransfer({ transferId: row.id }), `Transfer #${row.id} cancelled.`)}><X size={17}/></button>}</div></div>)}</div> : <Empty title="No active transfers" detail="Create a request or review an agent draft when another site can help." />}
-    </Panel>
-    <Panel eyebrow="HISTORY" title="Completed and cancelled"><div className="compact-list">{finished.slice(0, 12).map(row => <div key={row.id}><span>#{row.id} · {row.label}</span><small>{siteName(state.sites, row.sourceSiteId)} → {siteName(state.sites, row.destSiteId)}</small><Pill tone={statusTone(row.status)}>{row.status}</Pill></div>)}{!finished.length && <span className="muted">No completed transfers yet.</span>}</div></Panel>
-
-    {showForm && <div className="modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setShowForm(false); }}><div className="modal"><div className="modal-head"><div><div className="eyebrow">HUMAN-INITIATED</div><h2>Request stock</h2></div><button className="icon-button" onClick={() => setShowForm(false)} aria-label="Close"><X size={18}/></button></div><p className="modal-copy">The source manager must approve a reservation before any quantity is committed.</p>
-      <div className="form-grid"><label>From site<select value={sourceSiteId} onChange={event => { setSourceSiteId(Number(event.target.value)); setNdc(''); }}><option value={0}>Choose source</option>{state.sites.map(site => <option key={site.id} value={site.id}>{site.name}</option>)}</select></label><label>To site<select value={destSiteId} onChange={event => setDestSiteId(Number(event.target.value))} disabled={state.me?.role !== 'admin'}><option value={0}>Choose destination</option>{state.sites.map(site => <option key={site.id} value={site.id}>{site.name}</option>)}</select></label><label className="full">Product at source<select value={ndc} onChange={event => setNdc(event.target.value)}><option value="">Choose product</option>{sources.map(item => <option key={item.key} value={item.ndc}>{item.label} · {number(item.onHand - item.reserved, 1)} {item.unit} free · NDC {item.ndc}</option>)}</select></label><label>Quantity<input type="number" min="0" step="any" value={quantity} onChange={event => setQuantity(event.target.value)} placeholder="0"/></label><label>Reason<input value={reason} onChange={event => setReason(event.target.value)} placeholder="Why this site needs stock"/></label></div><div className="modal-foot"><small>Requests do not reserve stock until approved by the source.</small><button className="button primary" disabled={busy || !sourceSiteId || !destSiteId || !ndc || !(Number(quantity) > 0)} onClick={create}><Send size={15}/> Send request</button></div>
-    </div></div>}
-  </div>;
+  return <Modal title="Request stock" subtitle="Ask another site to send you a product. Nothing is reserved until the source approves." onClose={onClose}
+    footer={<><button className="button ghost" onClick={onClose}>Cancel</button><button className="button primary" disabled={busy || !source || !dest || !ndc || !(Number(qty) > 0)} onClick={save}>Send request</button></>}>
+    <div className="form-grid">
+      <label>From<select value={source} onChange={e => { setSource(Number(e.target.value)); setNdc(''); }}><option value={0}>Choose site</option>{state.sites.filter(s => s.id !== dest).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+      <label>To<select value={dest} onChange={e => setDest(Number(e.target.value))} disabled={state.me?.role !== 'admin'}><option value={0}>Choose site</option>{state.sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+      <label className="full">Product<select value={ndc} onChange={e => setNdc(e.target.value)} disabled={!source}><option value="">{source ? 'Choose product' : 'Choose the source site first'}</option>{products.map(p => <option key={p.key} value={p.ndc}>{p.label} · {number(p.onHand - p.reserved)} {p.unit} free</option>)}</select></label>
+      <label>Quantity<input type="number" min="0" step="any" value={qty} onChange={e => setQty(e.target.value)} /></label>
+      <label>Reason<input value={reason} onChange={e => setReason(e.target.value)} placeholder="Optional" /></label>
+    </div>
+  </Modal>;
 }
