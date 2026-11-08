@@ -17,4 +17,5 @@ export default __t.row({
   contact: __t.string(),
   active: __t.bool(),
   createdAt: __t.timestamp().name("created_at"),
+  networkId: __t.u32().name("network_id"),
 });

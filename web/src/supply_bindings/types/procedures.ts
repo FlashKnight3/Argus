@@ -6,5 +6,8 @@
 import { type Infer as __Infer } from "spacetimedb";
 
 // Import all procedure arg schemas
+import * as RefreshFdaProcedure from "../refresh_fda_procedure";
 
+export type RefreshFdaArgs = __Infer<typeof RefreshFdaProcedure.params>;
+export type RefreshFdaResult = __Infer<typeof RefreshFdaProcedure.returnType>;
 

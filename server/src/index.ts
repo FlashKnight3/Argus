@@ -18,8 +18,9 @@
  * Safety boundary: workers and the agent may import public notices, write derived
  * forecasts, and draft proposals/matches. Only humans reserve, ship, or receive stock.
  */
-import { schema, SenderError, table, t, ScheduleAt, type InferSchema, type ReducerCtx } from 'spacetimedb/server';
-import { hashPassword, sameHash } from './password';
+import { schema, SenderError, table, t, ScheduleAt, Router, SyncResponse, type InferSchema, type ProcedureCtx, type ReducerCtx, type ViewCtx } from 'spacetimedb/server';
+import { sameString } from './hash';
+import { collectFda, FDA_URL, type FdaPage, type FdaRow } from './fda';
 
 // ── Tables: core ledger ─────────────────────────────────────────────────────
 
@@ -30,6 +31,8 @@ const site = table({ name: 'site' }, {
   contact: t.string(),
   active: t.bool(),
   createdAt: t.timestamp(),
+  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  networkId: t.u32().default(1).index('btree'),
 });
 
 const member = table({ name: 'member' }, {
@@ -42,6 +45,8 @@ const member = table({ name: 'member' }, {
   createdAt: t.timestamp(),
   /** Signed-in account for this browser identity ('' for service workers and legacy members). */
   email: t.string().default(''),
+  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  networkId: t.u32().default(1).index('btree'),
 });
 
 const inventory = table({ name: 'inventory' }, {
@@ -61,6 +66,8 @@ const inventory = table({ name: 'inventory' }, {
   updatedAt: t.timestamp(),
   /** Typical days from reorder to delivery under normal supply. */
   leadTimeDays: t.f64().default(7),
+  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  networkId: t.u32().default(1).index('btree'),
 });
 
 const stockEvent = table({ name: 'stock_event' }, {
@@ -72,6 +79,8 @@ const stockEvent = table({ name: 'stock_event' }, {
   note: t.string(),
   actor: t.string(),
   at: t.timestamp(),
+  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  networkId: t.u32().default(1).index('btree'),
 });
 
 const shortage = table({ name: 'shortage', public: true }, {
@@ -117,6 +126,8 @@ const transfer = table({ name: 'transfer' }, {
   reservedAtMicros: t.i64().default(0n),
   /** Destination package NDC when it differs from the source (equivalent product, same RxCUI). */
   destNdc: t.string().default(''),
+  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  networkId: t.u32().default(1).index('btree'),
 });
 
 const forecast = table({ name: 'forecast' }, {
@@ -140,6 +151,8 @@ const forecast = table({ name: 'forecast' }, {
   pooled: t.bool().default(false),
   workerId: t.string().default(''),
   leaseEpoch: t.u64().default(0n),
+  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  networkId: t.u32().default(1).index('btree'),
 });
 
 const proposal = table({ name: 'proposal' }, {
@@ -157,6 +170,8 @@ const proposal = table({ name: 'proposal' }, {
   runId: t.u32().default(0),
   /** Destination package NDC when it differs from the source (equivalent product). */
   destNdc: t.string().default(''),
+  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  networkId: t.u32().default(1).index('btree'),
 });
 
 const activity = table({ name: 'activity' }, {
@@ -165,6 +180,8 @@ const activity = table({ name: 'activity' }, {
   action: t.string(),
   detail: t.string(),
   at: t.timestamp(),
+  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  networkId: t.u32().default(1).index('btree'),
 });
 
 // ── Tables: coordination ────────────────────────────────────────────────────
@@ -180,28 +197,27 @@ const networkConfig = table({ name: 'network_config' }, {
   shortageLeadMultiplier: t.f64().default(2.5),
   /** Allow the agent to send network data to the Claude API (otherwise it uses the deterministic planner). */
   llmAllowed: t.bool().default(true),
+  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  networkId: t.u32().default(1).index('btree'),
 });
 
-const account = table({ name: 'account' }, {
+/** An invitation: the person joins when they first sign in with SpacetimeAuth using this email. */
+const invite = table({ name: 'invite' }, {
   email: t.string().primaryKey(),
   name: t.string(),
   /** admin | manager | viewer */
   role: t.string(),
   siteId: t.u32(),
-  passwordHash: t.string(),
-  salt: t.string(),
-  failedAttempts: t.u32(),
-  lockedUntilMicros: t.i64(),
+  invitedBy: t.string(),
   createdAt: t.timestamp(),
-  lastLoginMicros: t.i64(),
+  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  networkId: t.u32().default(1).index('btree'),
 });
 
-/** Outcome of this browser's most recent sign-in attempt (readable only by that browser). */
-const loginStatus = table({ name: 'login_status' }, {
-  identity: t.string().primaryKey(),
-  ok: t.bool(),
-  message: t.string(),
-  atMicros: t.i64(),
+/** Schedule for the in-database FDA import procedure. */
+const fdaSyncJob = table({ name: 'fda_sync_job' }, {
+  scheduledId: t.u64().primaryKey().autoInc(),
+  scheduledAt: t.scheduleAt(),
 });
 
 const worker = table({ name: 'worker' }, {
@@ -213,6 +229,8 @@ const worker = table({ name: 'worker' }, {
   status: t.string(),
   startedAt: t.timestamp(),
   lastSeenMicros: t.i64(),
+  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  networkId: t.u32().default(1).index('btree'),
 });
 
 const lease = table({ name: 'lease' }, {
@@ -224,6 +242,8 @@ const lease = table({ name: 'lease' }, {
   epoch: t.u64(),
   expiresAtMicros: t.i64(),
   acquiredAtMicros: t.i64(),
+  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  networkId: t.u32().default(1).index('btree'),
 });
 
 const sweepJob = table({ name: 'sweep_job' }, {
@@ -255,6 +275,8 @@ const agentRun = table({ name: 'agent_run' }, {
   matches: t.u32(),
   createdAt: t.timestamp(),
   finishedAtMicros: t.i64(),
+  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  networkId: t.u32().default(1).index('btree'),
 });
 
 const agentStep = table({ name: 'agent_step' }, {
@@ -265,6 +287,8 @@ const agentStep = table({ name: 'agent_step' }, {
   tool: t.string(),
   content: t.string(),
   at: t.timestamp(),
+  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  networkId: t.u32().default(1).index('btree'),
 });
 
 const matchSuggestion = table({ name: 'match_suggestion' }, {
@@ -277,6 +301,8 @@ const matchSuggestion = table({ name: 'match_suggestion' }, {
   status: t.string(),
   runId: t.u32(),
   createdAt: t.timestamp(),
+  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  networkId: t.u32().default(1).index('btree'),
 });
 
 const modelMetric = table({ name: 'model_metric' }, {
@@ -292,11 +318,22 @@ const modelMetric = table({ name: 'model_metric' }, {
   bias: t.f64(),
   workerId: t.string(),
   computedAt: t.timestamp(),
+  /** Tenant key: views return a member's own network via a semijoin on this indexed column. */
+  networkId: t.u32().default(1).index('btree'),
 });
 
 const spacetimedb = schema({
   site, member, inventory, stockEvent, shortage, syncState, transfer, forecast, proposal, activity,
-  networkConfig, worker, lease, sweepJob, opReceipt, agentRun, agentStep, matchSuggestion, modelMetric, account, loginStatus,
+  networkConfig, worker, lease, sweepJob, opReceipt, agentRun, agentStep, matchSuggestion, modelMetric, invite, fdaSyncJob,
+}, {
+  env: {
+    /** Comma-separated accepted OIDC issuers. Default: SpacetimeAuth. */
+    OIDC_ISSUERS: t.string().optional(),
+    /** Comma-separated OIDC client IDs (token audience). Required for people to sign in. */
+    OIDC_CLIENT_IDS: t.string().optional(),
+    /** Bearer key for the POST /inventory integration endpoint (unset = endpoint disabled). */
+    INGEST_API_KEY: t.string().optional(),
+  },
 });
 export default spacetimedb;
 
@@ -310,8 +347,10 @@ const WORKER_FORGET_US = 60n * SECOND;
 const SWEEP_INTERVAL_US = 2n * SECOND;
 const RECEIPT_RETENTION_US = 7n * 86_400n * SECOND;
 const MAX_AGENT_ATTEMPTS = 3;
-const MAX_LOGIN_FAILURES = 5;
-const LOCKOUT_US = 5n * 60n * SECOND;
+const NET = 1;
+const SPACETIMEAUTH_ISSUER = 'https://auth.spacetimedb.com/oidc';
+const FDA_INTERVAL_US = 6n * 3600n * SECOND;
+const HISTORY_RETENTION_US = 400n * 86_400n * SECOND;
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -342,27 +381,35 @@ function ndc(value: string): string {
 }
 function invKey(siteId: number, code: string) { return `${siteId}:${code}`; }
 function log(ctx: Ctx, action: string, detail: string) {
-  ctx.db.activity.insert({ id: 0, actor: caller(ctx), action, detail, at: ctx.timestamp });
+  ctx.db.activity.insert({ networkId: NET, id: 0, actor: caller(ctx), action, detail, at: ctx.timestamp });
 }
 function stockLog(ctx: Ctx, key: string, kind: string, delta: number, note: string) {
-  ctx.db.stockEvent.insert({ id: 0, inventoryKey: key, kind, delta, note, actor: caller(ctx), at: ctx.timestamp });
+  ctx.db.stockEvent.insert({ networkId: NET, id: 0, inventoryKey: key, kind, delta, note, actor: caller(ctx), at: ctx.timestamp });
 }
 /** A network exists once anything has been created (members may all be signed out). */
 function networkExists(ctx: Ctx): boolean {
-  for (const _a of ctx.db.account.iter()) return true;
   for (const _m of ctx.db.member.iter()) return true;
+  for (const _i of ctx.db.invite.iter()) return true;
   for (const _s of ctx.db.site.iter()) return true;
   return false;
 }
 function config(ctx: Ctx) {
   const row = ctx.db.networkConfig.id.find(CONFIG_ID);
   if (row) return row;
-  return ctx.db.networkConfig.insert({ id: CONFIG_ID, sandbox: false, reservationTtlHours: 24, agentAutoRun: true,
+  return ctx.db.networkConfig.insert({ networkId: NET, id: CONFIG_ID, sandbox: false, reservationTtlHours: 24, agentAutoRun: true,
     shortageLeadMultiplier: 2.5, llmAllowed: true });
 }
+/** Make sure the recurring jobs exist (init only runs on first publish). */
 function ensureSweep(ctx: Ctx) {
-  for (const _job of ctx.db.sweepJob.iter()) return;
-  ctx.db.sweepJob.insert({ scheduledId: 0n, scheduledAt: ScheduleAt.interval(SWEEP_INTERVAL_US) });
+  let sweep = false;
+  for (const _job of ctx.db.sweepJob.iter()) { sweep = true; break; }
+  if (!sweep) ctx.db.sweepJob.insert({ scheduledId: 0n, scheduledAt: ScheduleAt.interval(SWEEP_INTERVAL_US) });
+  let fda = false;
+  for (const _job of ctx.db.fdaSyncJob.iter()) { fda = true; break; }
+  if (!fda) {
+    ctx.db.fdaSyncJob.insert({ scheduledId: 0n, scheduledAt: ScheduleAt.interval(FDA_INTERVAL_US) });
+    ctx.db.fdaSyncJob.insert({ scheduledId: 0n, scheduledAt: ScheduleAt.time(now(ctx) + SECOND) });
+  }
 }
 /** Idempotency: returns false when this client operation was already applied. */
 function firstApply(ctx: Ctx, opId: string, reducer: string): boolean {
@@ -375,7 +422,7 @@ function firstApply(ctx: Ctx, opId: string, reducer: string): boolean {
 }
 function siteResource(siteId: number) { return `site:${siteId}`; }
 function validResource(ctx: Ctx, resource: string): boolean {
-  if (resource === 'fda' || resource === 'agent') return true;
+  if (resource === 'agent') return true;
   const m = /^site:(\d+)$/.exec(resource);
   return !!m && !!ctx.db.site.id.find(Number(m[1]));
 }
@@ -402,7 +449,12 @@ export const init = spacetimedb.init(ctx => {
   ensureSweep(ctx);
 });
 
-export const onConnect = spacetimedb.clientConnected(ctx => { ensureSweep(ctx); });
+export const onConnect = spacetimedb.clientConnected(ctx => {
+  ensureSweep(ctx);
+  // A signed-in person who was invited becomes a member the moment they connect.
+  const who = verifiedPerson(ctx);
+  if (who) admitPerson(ctx, who);
+});
 
 export const sweep = spacetimedb.reducer({ onSchedule: sweepJob }, { arg: sweepJob.rowType }, (ctx, _a) => {
   const t0 = now(ctx);
@@ -415,7 +467,7 @@ export const sweep = spacetimedb.reducer({ onSchedule: sweepJob }, { arg: sweepJ
     if (stale) offline.add(w.id);
     if (stale && w.status !== 'offline') {
       ctx.db.worker.id.update({ ...w, status: 'offline' });
-      ctx.db.activity.insert({ id: 0, actor: w.identity, action: 'worker.offline', detail: `${w.name} (${w.id}) missed heartbeats`, at: ctx.timestamp });
+      ctx.db.activity.insert({ networkId: NET, id: 0, actor: w.identity, action: 'worker.offline', detail: `${w.name} (${w.id}) missed heartbeats`, at: ctx.timestamp });
     }
   }
   // Forget workers that have been gone for a while (each restart registers a new worker ID).
@@ -428,7 +480,7 @@ export const sweep = spacetimedb.reducer({ onSchedule: sweepJob }, { arg: sweepJ
     const retry = run.attempts < MAX_AGENT_ATTEMPTS;
     ctx.db.agentRun.id.update({ ...run, status: retry ? 'queued' : 'failed', workerId: retry ? '' : run.workerId,
       summary: retry ? run.summary : 'Worker was lost repeatedly; run abandoned.', finishedAtMicros: retry ? 0n : t0 });
-    ctx.db.agentStep.insert({ id: 0, runId: run.id, kind: 'error', tool: '',
+    ctx.db.agentStep.insert({ networkId: NET, id: 0, runId: run.id, kind: 'error', tool: '',
       content: retry ? `Worker ${run.workerId} went silent; run re-queued for another worker.` : 'Worker lost; giving up after retries.', at: ctx.timestamp });
   }
   const ttlUs = BigInt(Math.round(config(ctx).reservationTtlHours * 3600)) * SECOND;
@@ -437,7 +489,7 @@ export const sweep = spacetimedb.reducer({ onSchedule: sweepJob }, { arg: sweepJ
       if (tr.status !== 'reserved' || tr.reservedAtMicros <= 0n || t0 - tr.reservedAtMicros < ttlUs) continue;
       releaseReservation(ctx, tr);
       ctx.db.transfer.id.update({ ...tr, status: 'cancelled', reason: `${tr.reason} [reservation expired]`.trim(), updatedAt: ctx.timestamp });
-      ctx.db.activity.insert({ id: 0, actor: 'system', action: 'transfer.expire', detail: `#${tr.id}: unshipped reservation released`, at: ctx.timestamp });
+      ctx.db.activity.insert({ networkId: NET, id: 0, actor: 'system', action: 'transfer.expire', detail: `#${tr.id}: unshipped reservation released`, at: ctx.timestamp });
     }
   }
   for (const r of [...ctx.db.opReceipt.iter()]) {
@@ -445,165 +497,133 @@ export const sweep = spacetimedb.reducer({ onSchedule: sweepJob }, { arg: sweepJ
   }
 });
 
-// ── Accounts and sign-in ────────────────────────────────────────────────────
+/** Daily housekeeping: bounded history keeps views and subscriptions small. */
+export const pruneHistory = spacetimedb.reducer({ maxEvents: t.u32() }, (ctx, a) => {
+  requireRole(ctx, 'admin');
+  const cutoff = now(ctx) - HISTORY_RETENTION_US;
+  let removed = 0;
+  for (const e of [...ctx.db.stockEvent.iter()]) {
+    if (removed >= a.maxEvents) break;
+    if (e.at.microsSinceUnixEpoch < cutoff) { ctx.db.stockEvent.id.delete(e.id); removed++; }
+  }
+  for (const s of [...ctx.db.agentStep.iter()]) {
+    if (s.at.microsSinceUnixEpoch < cutoff) ctx.db.agentStep.id.delete(s.id);
+  }
+  log(ctx, 'history.prune', `${removed} stock events older than 400 days`);
+});
 
+// ── Sign-in: SpacetimeAuth (OIDC) ───────────────────────────────────────────
+//
+// The browser signs in with SpacetimeAuth and connects with the ID token. SpacetimeDB verifies the
+// token's signature and derives a stable identity from (issuer, subject), so a person has the same
+// identity on every device. Here we additionally check the issuer and audience (our client ID) and
+// read the email claim to match invitations.
+
+function listEnv(value: string | null | undefined): string[] {
+  return (value ?? '').split(',').map(v => v.trim()).filter(Boolean);
+}
+type Person = { email: string; name: string; issuer: string };
+/** The caller's verified person claims, or null for anonymous/worker/foreign tokens. */
+function verifiedPerson(ctx: { senderAuth: Ctx['senderAuth']; env: Ctx['env'] }): Person | null {
+  const jwt = ctx.senderAuth.jwt;
+  if (!jwt) return null;
+  const issuers = listEnv(ctx.env.get('OIDC_ISSUERS'));
+  const clients = listEnv(ctx.env.get('OIDC_CLIENT_IDS'));
+  if (!(issuers.length ? issuers : [SPACETIMEAUTH_ISSUER]).includes(jwt.issuer)) return null;
+  if (!clients.length || !jwt.audience.some(aud => clients.includes(aud))) return null;
+  const claims = jwt.fullPayload;
+  const email = typeof claims.email === 'string' ? claims.email.trim().toLowerCase() : '';
+  if (!email || claims.email_verified === false) return null;
+  const name = [claims.name, claims.preferred_username, claims.nickname].find(v => typeof v === 'string' && v.trim()) as string | undefined;
+  return { email, name: (name ?? email.split('@')[0]).trim().slice(0, 80), issuer: jwt.issuer };
+}
+function requirePerson(ctx: Ctx): Person {
+  const who = verifiedPerson(ctx);
+  if (who) return who;
+  const jwt = ctx.senderAuth.jwt;
+  const issuers = listEnv(ctx.env.get('OIDC_ISSUERS'));
+  // Anonymous SpacetimeDB identities carry a token from the database itself, not from a sign-in provider.
+  if (!jwt || !(issuers.length ? issuers : [SPACETIMEAUTH_ISSUER]).includes(jwt.issuer)) throw new SenderError('Sign in with SpacetimeAuth first.');
+  if (!listEnv(ctx.env.get('OIDC_CLIENT_IDS')).length) throw new SenderError('Sign-in is not configured on this database (set OIDC_CLIENT_IDS).');
+  throw new SenderError('This sign-in token is not accepted here (wrong issuer or client, or unverified email).');
+}
 function normEmail(email: string): string {
   const e = email.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e) || e.length > 200) throw new SenderError('Enter a valid email address.');
   return e;
-}
-function checkPassword(password: string) {
-  if (password.length < 8) throw new SenderError('Use a password of at least 8 characters.');
-  if (password.length > 200) throw new SenderError('Password is too long.');
-}
-function newCredentials(ctx: Ctx, password: string) {
-  checkPassword(password);
-  const salt = ctx.newUuidV4().toString();
-  return { salt, passwordHash: hashPassword(salt, password) };
 }
 function validRole(ctx: Ctx, role: string, siteId: number) {
   if (!['admin', 'manager', 'viewer'].includes(role)) throw new SenderError('Role must be admin, manager, or viewer.');
   if (role !== 'admin' && !ctx.db.site.id.find(siteId)) throw new SenderError('Choose the site this person belongs to.');
   return role === 'admin' ? 0 : siteId;
 }
-/** Bind the caller's browser identity to an account (create or refresh its member row). */
-function startSession(ctx: Ctx, acct: { email: string; name: string; role: string; siteId: number }) {
-  const row = { identity: caller(ctx), name: acct.name, role: acct.role, siteId: acct.siteId, createdAt: ctx.timestamp, email: acct.email };
-  const old = ctx.db.member.identity.find(row.identity);
-  if (old && old.role === 'service') throw new SenderError('Worker identities cannot sign in.');
-  if (old) ctx.db.member.identity.update(row);
-  else ctx.db.member.insert(row);
-}
-function status(ctx: Ctx, ok: boolean, message: string) {
-  const row = { identity: caller(ctx), ok, message, atMicros: now(ctx) };
-  if (ctx.db.loginStatus.identity.find(row.identity)) ctx.db.loginStatus.identity.update(row);
-  else ctx.db.loginStatus.insert(row);
-}
-/** Apply an account's current role to every browser signed in to it. */
-function syncSessions(ctx: Ctx, acct: { email: string; name: string; role: string; siteId: number }) {
-  for (const m of [...ctx.db.member.iter()]) {
-    if (m.email === acct.email) ctx.db.member.identity.update({ ...m, name: acct.name, role: acct.role, siteId: acct.siteId });
+/** Refresh a member's profile, or turn a pending invitation into membership. Returns true if a member. */
+function admitPerson(ctx: Ctx, who: Person): boolean {
+  const old = currentMember(ctx);
+  if (old) {
+    if (old.role !== 'service' && (old.email !== who.email || old.name !== who.name))
+      ctx.db.member.identity.update({ ...old, email: who.email, name: who.name });
+    return true;
   }
+  const inv = ctx.db.invite.email.find(who.email);
+  if (!inv) return false;
+  ctx.db.member.insert({ identity: caller(ctx), name: inv.name || who.name, role: inv.role, siteId: inv.siteId,
+    createdAt: ctx.timestamp, email: who.email, networkId: NET });
+  ctx.db.invite.email.delete(inv.email);
+  log(ctx, 'member.join', `${who.email} joined as ${inv.role}`);
+  return true;
 }
 
-/** Never throws on bad credentials, so failed attempts are recorded (and can lock the account). */
-export const signIn = spacetimedb.reducer({ email: t.string(), password: t.string() }, (ctx, a) => {
-  const email = a.email.trim().toLowerCase();
-  const acct = ctx.db.account.email.find(email);
-  const t0 = now(ctx);
-  if (!acct) { status(ctx, false, 'Invalid email or password.'); return; }
-  if (acct.lockedUntilMicros > t0) {
-    const mins = Math.ceil(Number(acct.lockedUntilMicros - t0) / 60e6);
-    status(ctx, false, `Too many failed attempts. Try again in ${mins} minute${mins === 1 ? '' : 's'}.`);
-    return;
-  }
-  if (!sameHash(hashPassword(acct.salt, a.password), acct.passwordHash)) {
-    const failures = acct.failedAttempts + 1;
-    const locked = failures >= MAX_LOGIN_FAILURES;
-    ctx.db.account.email.update({ ...acct, failedAttempts: locked ? 0 : failures, lockedUntilMicros: locked ? t0 + LOCKOUT_US : 0n });
-    status(ctx, false, locked ? 'Too many failed attempts. The account is locked for 5 minutes.' : 'Invalid email or password.');
-    if (locked) log(ctx, 'account.locked', email);
-    return;
-  }
-  ctx.db.account.email.update({ ...acct, failedAttempts: 0, lockedUntilMicros: 0n, lastLoginMicros: t0 });
-  startSession(ctx, acct);
-  status(ctx, true, `Signed in as ${acct.name}.`);
-  log(ctx, 'account.signin', email);
+/** Explicit join (also attempted automatically on connect). */
+export const joinNetwork = spacetimedb.reducer(ctx => {
+  const who = requirePerson(ctx);
+  if (!admitPerson(ctx, who)) throw new SenderError(`No invitation for ${who.email}. Ask a network admin to invite this email.`);
 });
 
-export const signOut = spacetimedb.reducer(ctx => {
-  const m = currentMember(ctx);
-  if (!m || m.role === 'service') return;
-  if (!m.email && !config(ctx).sandbox)
-    throw new SenderError('Add an email and password first (Secure account); otherwise you could not sign back in.');
-  ctx.db.member.identity.delete(m.identity);
-  const st = ctx.db.loginStatus.identity.find(caller(ctx));
-  if (st) ctx.db.loginStatus.identity.delete(st.identity);
-  log(ctx, 'account.signout', m.email || m.name);
-});
-
-/** A member from before accounts existed (identity only) adds an email and password. */
-export const claimAccount = spacetimedb.reducer({ email: t.string(), password: t.string() }, (ctx, a) => {
-  const m = currentMember(ctx);
-  if (!m || m.role === 'service') throw new SenderError('Sign in first.');
-  if (m.email) throw new SenderError('This browser is already signed in to an account.');
-  const email = normEmail(a.email);
-  if (ctx.db.account.email.find(email)) throw new SenderError('An account with that email already exists.');
-  ctx.db.account.insert({ email, name: m.name, role: m.role, siteId: m.siteId, ...newCredentials(ctx, a.password),
-    failedAttempts: 0, lockedUntilMicros: 0n, createdAt: ctx.timestamp, lastLoginMicros: now(ctx) });
-  ctx.db.member.identity.update({ ...m, email });
-  log(ctx, 'account.claim', email);
-});
-
-export const changePassword = spacetimedb.reducer({ currentPassword: t.string(), newPassword: t.string() }, (ctx, a) => {
-  const m = currentMember(ctx);
-  const acct = m?.email ? ctx.db.account.email.find(m.email) : undefined;
-  if (!acct) throw new SenderError('Sign in to an account first.');
-  if (!sameHash(hashPassword(acct.salt, a.currentPassword), acct.passwordHash)) throw new SenderError('Current password is incorrect.');
-  ctx.db.account.email.update({ ...acct, ...newCredentials(ctx, a.newPassword) });
-  log(ctx, 'account.password', acct.email);
-});
-
-export const createAccount = spacetimedb.reducer(
-  { email: t.string(), name: t.string(), role: t.string(), siteId: t.u32(), password: t.string() },
-  (ctx, a) => {
-    requireRole(ctx, 'admin');
-    const email = normEmail(a.email);
-    if (!a.name.trim()) throw new SenderError('Name is required.');
-    if (ctx.db.account.email.find(email)) throw new SenderError('An account with that email already exists.');
-    const siteId = validRole(ctx, a.role, a.siteId);
-    ctx.db.account.insert({ email, name: a.name.trim(), role: a.role, siteId, ...newCredentials(ctx, a.password),
-      failedAttempts: 0, lockedUntilMicros: 0n, createdAt: ctx.timestamp, lastLoginMicros: 0n });
-    log(ctx, 'account.create', `${email} (${a.role}${siteId ? ` at site ${siteId}` : ''})`);
-  }
-);
-
-export const updateAccount = spacetimedb.reducer(
+export const inviteMember = spacetimedb.reducer(
   { email: t.string(), name: t.string(), role: t.string(), siteId: t.u32() },
   (ctx, a) => {
     const me = requireRole(ctx, 'admin');
-    const acct = ctx.db.account.email.find(a.email.trim().toLowerCase());
-    if (!acct) throw new SenderError('Account not found.');
-    if (acct.email === me.email && a.role !== 'admin') throw new SenderError('You cannot remove your own admin role.');
+    const email = normEmail(a.email);
     const siteId = validRole(ctx, a.role, a.siteId);
-    const next = { ...acct, name: a.name.trim() || acct.name, role: a.role, siteId };
-    ctx.db.account.email.update(next);
-    syncSessions(ctx, next);
-    log(ctx, 'account.update', `${acct.email} → ${a.role}${siteId ? ` at site ${siteId}` : ''}`);
+    for (const m of ctx.db.member.iter()) if (m.email === email) throw new SenderError(`${email} is already a member.`);
+    const row = { email, name: a.name.trim(), role: a.role, siteId, invitedBy: me.email || me.name, createdAt: ctx.timestamp, networkId: NET };
+    if (ctx.db.invite.email.find(email)) ctx.db.invite.email.update(row);
+    else ctx.db.invite.insert(row);
+    log(ctx, 'member.invite', `${email} as ${a.role}${siteId ? ` at site ${siteId}` : ''}`);
   }
 );
 
-export const resetAccountPassword = spacetimedb.reducer({ email: t.string(), password: t.string() }, (ctx, a) => {
+export const cancelInvite = spacetimedb.reducer({ email: t.string() }, (ctx, a) => {
   requireRole(ctx, 'admin');
-  const acct = ctx.db.account.email.find(a.email.trim().toLowerCase());
-  if (!acct) throw new SenderError('Account not found.');
-  ctx.db.account.email.update({ ...acct, ...newCredentials(ctx, a.password), failedAttempts: 0, lockedUntilMicros: 0n });
-  log(ctx, 'account.reset', acct.email);
+  if (!ctx.db.invite.email.find(a.email)) throw new SenderError('Invitation not found.');
+  ctx.db.invite.email.delete(a.email);
+  log(ctx, 'member.uninvite', a.email);
 });
 
-export const deleteAccount = spacetimedb.reducer({ email: t.string() }, (ctx, a) => {
-  const me = requireRole(ctx, 'admin');
-  const email = a.email.trim().toLowerCase();
-  if (email === me.email) throw new SenderError('You cannot delete your own account.');
-  if (!ctx.db.account.email.find(email)) throw new SenderError('Account not found.');
-  ctx.db.account.email.delete(email);
-  for (const m of [...ctx.db.member.iter()]) if (m.email === email) ctx.db.member.identity.delete(m.identity);
-  log(ctx, 'account.delete', email);
-});
+export const updateMember = spacetimedb.reducer(
+  { identity: t.string(), role: t.string(), siteId: t.u32() },
+  (ctx, a) => {
+    requireRole(ctx, 'admin');
+    const m = ctx.db.member.identity.find(a.identity.toLowerCase());
+    if (!m || m.role === 'service') throw new SenderError('Member not found.');
+    if (m.identity === caller(ctx) && a.role !== 'admin') throw new SenderError('You cannot remove your own admin role.');
+    const siteId = validRole(ctx, a.role, a.siteId);
+    ctx.db.member.identity.update({ ...m, role: a.role, siteId });
+    log(ctx, 'member.update', `${m.email || m.name} → ${a.role}${siteId ? ` at site ${siteId}` : ''}`);
+  }
+);
 
 // ── Network setup and access ────────────────────────────────────────────────
 
 export const bootstrapNetwork = spacetimedb.reducer(
-  { ownerName: t.string(), email: t.string(), password: t.string(), siteName: t.string(), region: t.string() },
+  { siteName: t.string(), region: t.string() },
   (ctx, a) => {
+    const who = requirePerson(ctx);
     if (networkExists(ctx)) throw new SenderError('The network has already been created.');
-    if (!a.ownerName.trim() || !a.siteName.trim()) throw new SenderError('Name and first site are required.');
-    const email = normEmail(a.email);
-    const creds = newCredentials(ctx, a.password);
-    const s = ctx.db.site.insert({ id: 0, name: a.siteName.trim(), region: a.region.trim(), contact: '', active: true, createdAt: ctx.timestamp });
-    ctx.db.account.insert({ email, name: a.ownerName.trim(), role: 'admin', siteId: 0, ...creds,
-      failedAttempts: 0, lockedUntilMicros: 0n, createdAt: ctx.timestamp, lastLoginMicros: now(ctx) });
-    ctx.db.member.insert({ identity: caller(ctx), name: a.ownerName.trim(), role: 'admin', siteId: 0, createdAt: ctx.timestamp, email });
+    if (!a.siteName.trim()) throw new SenderError('Name the first site.');
+    const s = ctx.db.site.insert({ id: 0, name: a.siteName.trim(), region: a.region.trim(), contact: '', active: true, createdAt: ctx.timestamp, networkId: NET });
+    ctx.db.member.insert({ identity: caller(ctx), name: who.name, role: 'admin', siteId: 0, createdAt: ctx.timestamp, email: who.email, networkId: NET });
     if (!ctx.db.syncState.id.find(SYNC_ID))
       ctx.db.syncState.insert({ id: SYNC_ID, runId: '', status: 'never', feedDate: '', recordCount: 0, completedAt: ctx.timestamp });
     config(ctx);
@@ -615,7 +635,7 @@ export const bootstrapNetwork = spacetimedb.reducer(
 /** Creates a network flagged as a sandbox: synthetic data, open admin claims, history backfill. */
 export const bootstrapSandbox = spacetimedb.reducer({ ownerName: t.string() }, (ctx, a) => {
   if (networkExists(ctx)) throw new SenderError('The network has already been created.');
-  ctx.db.member.insert({ identity: caller(ctx), name: a.ownerName.trim() || 'Sandbox seeder', role: 'admin', siteId: 0, createdAt: ctx.timestamp, email: '' });
+  ctx.db.member.insert({ networkId: NET, identity: caller(ctx), name: a.ownerName.trim() || 'Sandbox seeder', role: 'admin', siteId: 0, createdAt: ctx.timestamp, email: '' });
   if (!ctx.db.syncState.id.find(SYNC_ID))
     ctx.db.syncState.insert({ id: SYNC_ID, runId: '', status: 'never', feedDate: '', recordCount: 0, completedAt: ctx.timestamp });
   const c = config(ctx);
@@ -627,7 +647,7 @@ export const bootstrapSandbox = spacetimedb.reducer({ ownerName: t.string() }, (
 export const claimSandboxAdmin = spacetimedb.reducer({ name: t.string() }, (ctx, a) => {
   if (!config(ctx).sandbox) throw new SenderError('Only a sandbox network allows self-service admin access.');
   if (currentMember(ctx)) return;
-  ctx.db.member.insert({ identity: caller(ctx), name: a.name.trim() || 'Sandbox admin', role: 'admin', siteId: 0, createdAt: ctx.timestamp, email: '' });
+  ctx.db.member.insert({ networkId: NET, identity: caller(ctx), name: a.name.trim() || 'Sandbox admin', role: 'admin', siteId: 0, createdAt: ctx.timestamp, email: '' });
   log(ctx, 'member.sandbox_claim', caller(ctx).slice(0, 8));
 });
 
@@ -636,7 +656,7 @@ export const createSite = spacetimedb.reducer(
   (ctx, a) => {
     requireRole(ctx, 'admin');
     if (!a.name.trim()) throw new SenderError('Site name is required.');
-    const s = ctx.db.site.insert({ id: 0, name: a.name.trim(), region: a.region.trim(), contact: a.contact.trim(), active: true, createdAt: ctx.timestamp });
+    const s = ctx.db.site.insert({ networkId: NET, id: 0, name: a.name.trim(), region: a.region.trim(), contact: a.contact.trim(), active: true, createdAt: ctx.timestamp });
     log(ctx, 'site.create', `${s.id}: ${s.name}`);
   }
 );
@@ -646,10 +666,10 @@ export const grantMember = spacetimedb.reducer(
   (ctx, a) => {
     requireRole(ctx, 'admin');
     if (!/^[0-9a-f]{64}$/i.test(a.identity)) throw new SenderError('Identity must be a 64-character hex string.');
-    if (!['admin', 'manager', 'viewer', 'service'].includes(a.role)) throw new SenderError('Unknown role.');
-    if (['manager', 'viewer'].includes(a.role) && !ctx.db.site.id.find(a.siteId)) throw new SenderError('Site not found.');
-    const row = { identity: a.identity.toLowerCase(), name: a.name.trim() || a.role, role: a.role,
-      siteId: a.role === 'manager' || a.role === 'viewer' ? a.siteId : 0, createdAt: ctx.timestamp, email: '' };
+    // People join through SpacetimeAuth invitations; direct identity grants are for background workers only.
+    if (a.role !== 'service') throw new SenderError('Invite people by email; identity grants are only for workers.');
+    const row = { identity: a.identity.toLowerCase(), name: a.name.trim() || 'Agent workers', role: 'service',
+      siteId: 0, createdAt: ctx.timestamp, email: '', networkId: NET };
     const old = ctx.db.member.identity.find(row.identity);
     if (old) ctx.db.member.identity.update({ ...old, ...row, createdAt: old.createdAt, email: old.email });
     else ctx.db.member.insert(row);
@@ -705,7 +725,7 @@ export const upsertInventory = spacetimedb.reducer(
     const row = { key, siteId: a.siteId, ndc: code, label: a.label.trim(), unit: a.unit.trim(),
       onHand: a.onHand, reserved: old?.reserved ?? 0, baselineDaily: a.baselineDaily,
       safetyStock: a.safetyStock, shortageKey: a.shortageKey, revision: (old?.revision ?? 0) + 1,
-      updatedAt: ctx.timestamp, leadTimeDays: a.leadTimeDays };
+      updatedAt: ctx.timestamp, leadTimeDays: a.leadTimeDays, networkId: NET };
     if (old) ctx.db.inventory.key.update(row);
     else ctx.db.inventory.insert(row);
     stockLog(ctx, key, 'set', a.onHand - (old?.onHand ?? 0), old ? 'Inventory corrected' : 'Opening inventory');
@@ -743,7 +763,7 @@ export const sandboxSeedHistory = spacetimedb.reducer({ inventoryKey: t.string()
   for (const e of events) {
     if (!(e.daysAgo > 0 && e.daysAgo <= 120) || !(e.quantity > 0)) throw new SenderError('Invalid history event.');
     const at = new Ts(now(ctx) - BigInt(Math.round(e.daysAgo * 86_400)) * SECOND);
-    ctx.db.stockEvent.insert({ id: 0, inventoryKey: item.key, kind: 'use', delta: -e.quantity,
+    ctx.db.stockEvent.insert({ networkId: NET, id: 0, inventoryKey: item.key, kind: 'use', delta: -e.quantity,
       note: 'Synthetic sandbox history', actor: caller(ctx), at });
   }
   log(ctx, 'sandbox.history', `${item.key}: ${events.length} synthetic usage events`);
@@ -771,7 +791,7 @@ function requestTransfer(ctx: Ctx, sourceSiteId: number, destSiteId: number, cod
   if (into && (!dest || !equivalent(ctx, source, dest))) throw new SenderError('Destination product is not an equivalent (same RxCUI) product.');
   if (dest && dest.unit.trim().toLowerCase() !== source.unit.trim().toLowerCase())
     throw new SenderError('Source and destination units must match before transfer.');
-  const row = ctx.db.transfer.insert({ id: 0, sourceSiteId, destSiteId, ndc: code, label: source.label,
+  const row = ctx.db.transfer.insert({ networkId: NET, id: 0, sourceSiteId, destSiteId, ndc: code, label: source.label,
     quantity, status: 'requested', reason: reason.trim(), requestedBy: caller(ctx), approvedBy: '',
     createdAt: ctx.timestamp, updatedAt: ctx.timestamp, reservedAtMicros: 0n, destNdc: into });
   log(ctx, 'transfer.request', `#${row.id}: ${quantity} ${source.unit} ${source.label}, ${sourceSiteId} → ${destSiteId}`);
@@ -822,7 +842,7 @@ export const receiveTransfer = spacetimedb.reducer({ transferId: t.u32() }, (ctx
     throw new SenderError('Destination unit changed; reconcile it before receipt.');
   if (dest) ctx.db.inventory.key.update({ ...dest, onHand: dest.onHand + tr.quantity,
     revision: dest.revision + 1, updatedAt: ctx.timestamp });
-  else ctx.db.inventory.insert({ key, siteId: tr.destSiteId, ndc: tr.ndc, label: source.label,
+  else ctx.db.inventory.insert({ networkId: NET, key, siteId: tr.destSiteId, ndc: tr.ndc, label: source.label,
     unit: source.unit, onHand: tr.quantity, reserved: 0, baselineDaily: 0, safetyStock: 0,
     shortageKey: source.shortageKey, revision: 1, updatedAt: ctx.timestamp, leadTimeDays: source.leadTimeDays });
   stockLog(ctx, key, 'transfer_receive', tr.quantity, `Transfer #${tr.id}`);
@@ -853,7 +873,7 @@ export const workerHeartbeat = spacetimedb.reducer(
     if (old && old.identity !== caller(ctx)) throw new SenderError('Worker ID belongs to another identity.');
     if (old) ctx.db.worker.id.update({ ...old, name: a.name, version: a.version, status: 'online', lastSeenMicros: t0 });
     else {
-      ctx.db.worker.insert({ id: a.workerId, identity: caller(ctx), name: a.name, version: a.version, status: 'online', startedAt: ctx.timestamp, lastSeenMicros: t0 });
+      ctx.db.worker.insert({ networkId: NET, id: a.workerId, identity: caller(ctx), name: a.name, version: a.version, status: 'online', startedAt: ctx.timestamp, lastSeenMicros: t0 });
       log(ctx, 'worker.online', `${a.name} (${a.workerId})`);
     }
     if (old && old.status === 'offline') log(ctx, 'worker.online', `${a.name} (${a.workerId}) reconnected`);
@@ -875,7 +895,7 @@ export const acquireLease = spacetimedb.reducer({ workerId: t.string(), resource
     ctx.db.lease.resource.update({ ...old, expiresAtMicros: t0 + LEASE_TTL_US });
     return;
   }
-  const row = { resource: a.resource, holder: a.workerId, epoch: (old?.epoch ?? 0n) + 1n, expiresAtMicros: t0 + LEASE_TTL_US, acquiredAtMicros: t0 };
+  const row = { resource: a.resource, holder: a.workerId, epoch: (old?.epoch ?? 0n) + 1n, expiresAtMicros: t0 + LEASE_TTL_US, acquiredAtMicros: t0, networkId: NET };
   if (old) ctx.db.lease.resource.update(row);
   else ctx.db.lease.insert(row);
   log(ctx, 'lease.acquire', `${a.resource} → ${w.name} (epoch ${row.epoch}${old?.holder ? `, taken over from ${old.holder}` : ''})`);
@@ -891,62 +911,71 @@ export const releaseLease = spacetimedb.reducer({ workerId: t.string(), resource
   log(ctx, 'lease.release', `${a.resource} released by ${w.name} for rebalancing`);
 });
 
-// ── FDA import (fenced by the `fda` lease, or an admin in the browser) ──────
+// ── FDA import: a scheduled procedure inside the database ──────────────────
+//
+// Procedures may make outbound HTTP calls. The whole feed is downloaded first (no transaction is
+// open during HTTP), validated, then applied in one transaction: readers see the old snapshot or
+// the new one, never a mix.
 
-function requireImporter(ctx: Ctx, workerId: string, epoch: bigint) {
-  if (workerId) requireLease(ctx, workerId, 'fda', epoch);
-  else requireRole(ctx, 'admin');
+type ProcCtx = ProcedureCtx<InferSchema<typeof spacetimedb>>;
+
+function downloadFda(ctx: { http: ProcCtx['http'] }): { feedDate: string; rows: FdaRow[] } {
+  return collectFda(skip => {
+    const res = ctx.http.fetch(`${FDA_URL}?limit=1000&skip=${skip}`, { headers: { 'User-Agent': 'argus-supply/3.0' } });
+    if (!res.ok) throw new Error(`openFDA returned HTTP ${res.status}`);
+    return res.json() as FdaPage;
+  });
 }
 
-export const beginFdaSync = spacetimedb.reducer({ runId: t.string(), workerId: t.string(), leaseEpoch: t.u64() }, (ctx, a) => {
-  requireImporter(ctx, a.workerId, a.leaseEpoch);
-  if (!a.runId.trim()) throw new SenderError('Run ID is required.');
-  const old = ctx.db.syncState.id.find(SYNC_ID);
-  if (!old) throw new SenderError('Set up the network first.');
-  ctx.db.syncState.id.update({ ...old, runId: a.runId, status: 'running', recordCount: 0 });
-  log(ctx, 'fda.sync.start', a.runId);
+function applyFda(tx: Ctx, runId: string, feedDate: string, rows: FdaRow[]) {
+  const sync = tx.db.syncState.id.find(SYNC_ID);
+  const seen = new Set<string>();
+  for (const r of rows) {
+    seen.add(r.key);
+    const row = { ...r, runId, active: true, observedAt: tx.timestamp };
+    if (tx.db.shortage.key.find(r.key)) tx.db.shortage.key.update(row);
+    else tx.db.shortage.insert(row);
+  }
+  for (const old of [...tx.db.shortage.iter()]) {
+    if (old.active && !seen.has(old.key)) tx.db.shortage.key.update({ ...old, active: false });
+  }
+  const state = { id: SYNC_ID, runId, status: 'complete', feedDate, recordCount: rows.length, completedAt: tx.timestamp };
+  if (sync) tx.db.syncState.id.update(state); else tx.db.syncState.insert(state);
+  tx.db.activity.insert({ networkId: NET, id: 0, actor: 'system', action: 'fda.sync.complete', detail: `${rows.length} records; feed ${feedDate}`, at: tx.timestamp });
+}
+
+function runFdaSync(ctx: ProcCtx): string {
+  const runId = `fda-${ctx.timestamp.microsSinceUnixEpoch}`;
+  try {
+    const { feedDate, rows } = downloadFda(ctx);
+    ctx.withTx(tx => applyFda(tx as Ctx, runId, feedDate, rows));
+    return `Imported ${rows.length} FDA records (feed ${feedDate}).`;
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    ctx.withTx(tx => {
+      tx.db.activity.insert({ id: 0, actor: 'system', action: 'fda.sync.failed', detail: message.slice(0, 300), at: tx.timestamp, networkId: NET });
+      const sync = tx.db.syncState.id.find(SYNC_ID);
+      if (!sync) tx.db.syncState.insert({ id: SYNC_ID, runId, status: 'failed', feedDate: '', recordCount: 0, completedAt: tx.timestamp });
+    });
+    return `FDA import failed: ${message}`;
+  }
+}
+
+/** Runs every 6 hours (and once shortly after the database is created). */
+export const syncFdaScheduled = spacetimedb.procedure({ onSchedule: fdaSyncJob }, { arg: fdaSyncJob.rowType }, t.unit(), (ctx, _a) => {
+  runFdaSync(ctx);
+  return {};
 });
 
-type FdaRow = { key: string; packageNdc: string; genericName: string; companyName: string;
-  presentation: string; dosageForm: string; status: string; details: string; updateDate: string; rxcui: string };
-
-export const importFdaBatch = spacetimedb.reducer(
-  { runId: t.string(), rowsJson: t.string(), workerId: t.string(), leaseEpoch: t.u64() },
-  (ctx, a) => {
-    requireImporter(ctx, a.workerId, a.leaseEpoch);
-    const sync = ctx.db.syncState.id.find(SYNC_ID);
-    if (!sync || sync.status !== 'running' || sync.runId !== a.runId) throw new SenderError('No matching FDA import run.');
-    let rows: FdaRow[];
-    try { rows = JSON.parse(a.rowsJson) as FdaRow[]; }
-    catch { throw new SenderError('FDA batch must be JSON.'); }
-    if (!Array.isArray(rows) || rows.length > 200) throw new SenderError('FDA batch must contain at most 200 rows.');
-    for (const r of rows) {
-      if (!r.key || !r.genericName || !r.status) throw new SenderError('FDA row is missing required fields.');
-      const old = ctx.db.shortage.key.find(r.key);
-      const row = { key: r.key, packageNdc: r.packageNdc ?? '', genericName: r.genericName,
-        companyName: r.companyName ?? '', presentation: r.presentation ?? '', dosageForm: r.dosageForm ?? '',
-        status: r.status, details: r.details ?? '', updateDate: r.updateDate ?? '', rxcui: r.rxcui ?? '',
-        runId: a.runId, active: true, observedAt: ctx.timestamp };
-      if (old) ctx.db.shortage.key.update(row);
-      else ctx.db.shortage.insert(row);
-    }
-    ctx.db.syncState.id.update({ ...sync, recordCount: sync.recordCount + rows.length });
-  }
-);
-
-export const finishFdaSync = spacetimedb.reducer(
-  { runId: t.string(), feedDate: t.string(), workerId: t.string(), leaseEpoch: t.u64() },
-  (ctx, a) => {
-    requireImporter(ctx, a.workerId, a.leaseEpoch);
-    const sync = ctx.db.syncState.id.find(SYNC_ID);
-    if (!sync || sync.status !== 'running' || sync.runId !== a.runId) throw new SenderError('No matching FDA import run.');
-    for (const row of [...ctx.db.shortage.iter()]) {
-      if (row.active && row.runId !== a.runId) ctx.db.shortage.key.update({ ...row, active: false });
-    }
-    ctx.db.syncState.id.update({ ...sync, status: 'complete', feedDate: a.feedDate, completedAt: ctx.timestamp });
-    log(ctx, 'fda.sync.complete', `${sync.recordCount} records; feed ${a.feedDate}`);
-  }
-);
+/** "Refresh now" for admins. */
+export const refreshFda = spacetimedb.procedure(t.string(), ctx => {
+  const allowed = ctx.withTx(tx => {
+    const m = tx.db.member.identity.find(ctx.sender.toHexString());
+    return !!m && m.role === 'admin';
+  });
+  if (!allowed) return 'Only admins can refresh the FDA feed.';
+  return runFdaSync(ctx);
+});
 
 // ── Forecasts and calibration (fenced by the site lease) ────────────────────
 
@@ -965,7 +994,7 @@ export const writeForecast = spacetimedb.reducer(
     const row = { key: a.inventoryKey, inventoryRevision: a.inventoryRevision, computedAt: ctx.timestamp,
       ratePerDay: a.ratePerDay, daysP10: a.daysP10, daysMedian: a.daysMedian, daysP90: a.daysP90,
       risk: a.risk, explanation: a.explanation, pStockout: a.pStockout, horizonDays: a.horizonDays,
-      fdaAdjusted: a.fdaAdjusted, pooled: a.pooled, workerId: a.workerId, leaseEpoch: a.leaseEpoch };
+      fdaAdjusted: a.fdaAdjusted, pooled: a.pooled, workerId: a.workerId, leaseEpoch: a.leaseEpoch, networkId: NET };
     if (ctx.db.forecast.key.find(a.inventoryKey)) ctx.db.forecast.key.update(row);
     else ctx.db.forecast.insert(row);
   }
@@ -977,7 +1006,7 @@ export const writeModelMetric = spacetimedb.reducer(
   (ctx, a) => {
     requireLease(ctx, a.workerId, siteResource(a.siteId), a.leaseEpoch);
     const row = { key: siteResource(a.siteId), siteId: a.siteId, itemsEvaluated: a.itemsEvaluated, windows: a.windows,
-      coverage80: a.coverage80, meanAbsError: a.meanAbsError, bias: a.bias, workerId: a.workerId, computedAt: ctx.timestamp };
+      coverage80: a.coverage80, meanAbsError: a.meanAbsError, bias: a.bias, workerId: a.workerId, computedAt: ctx.timestamp, networkId: NET };
     if (ctx.db.modelMetric.key.find(row.key)) ctx.db.modelMetric.key.update(row);
     else ctx.db.modelMetric.insert(row);
   }
@@ -989,7 +1018,7 @@ function enqueueRun(ctx: Ctx, trigger: string, note: string) {
   for (const run of ctx.db.agentRun.iter()) {
     if (run.status === 'queued' || run.status === 'running') return run;
   }
-  const run = ctx.db.agentRun.insert({ id: 0, trigger, requestedBy: caller(ctx), note: note.trim().slice(0, 500), status: 'queued',
+  const run = ctx.db.agentRun.insert({ networkId: NET, id: 0, trigger, requestedBy: caller(ctx), note: note.trim().slice(0, 500), status: 'queued',
     mode: '', workerId: '', attempts: 0, summary: '', proposals: 0, matches: 0, createdAt: ctx.timestamp, finishedAtMicros: 0n });
   log(ctx, 'agent.queue', `Run #${run.id} (${trigger})${note.trim() ? `: ${note.trim().slice(0, 80)}` : ''}`);
   return run;
@@ -1030,7 +1059,7 @@ export const appendAgentStep = spacetimedb.reducer(
   (ctx, a) => {
     requireRunOwner(ctx, a.runId, a.workerId, a.leaseEpoch);
     if (!['plan', 'thought', 'tool_call', 'tool_result', 'final', 'error'].includes(a.kind)) throw new SenderError('Unknown step kind.');
-    ctx.db.agentStep.insert({ id: 0, runId: a.runId, kind: a.kind, tool: a.tool.slice(0, 64), content: a.content.slice(0, 4000), at: ctx.timestamp });
+    ctx.db.agentStep.insert({ networkId: NET, id: 0, runId: a.runId, kind: a.kind, tool: a.tool.slice(0, 64), content: a.content.slice(0, 4000), at: ctx.timestamp });
   }
 );
 
@@ -1064,7 +1093,7 @@ export const proposeTransfer = spacetimedb.reducer(
         throw new SenderError('A pending draft already covers this route.');
     }
     if (ctx.db.proposal.key.find(a.key)) return;
-    ctx.db.proposal.insert({ key: a.key, sourceSiteId: a.sourceSiteId, destSiteId: a.destSiteId,
+    ctx.db.proposal.insert({ networkId: NET, key: a.key, sourceSiteId: a.sourceSiteId, destSiteId: a.destSiteId,
       ndc: code, quantity: a.quantity, reason: a.reason.slice(0, 1000), status: 'pending', createdAt: ctx.timestamp, runId: a.runId,
       destNdc: destCode !== code ? destCode : '' });
     ctx.db.agentRun.id.update({ ...run, proposals: run.proposals + 1 });
@@ -1084,7 +1113,7 @@ export const suggestMatch = spacetimedb.reducer(
     if (!(a.confidence >= 0 && a.confidence <= 1)) throw new SenderError('Confidence must be in [0, 1].');
     const key = `${a.inventoryKey}|${a.shortageKey}`;
     if (ctx.db.matchSuggestion.key.find(key)) return;
-    ctx.db.matchSuggestion.insert({ key, inventoryKey: a.inventoryKey, shortageKey: a.shortageKey, confidence: a.confidence,
+    ctx.db.matchSuggestion.insert({ networkId: NET, key, inventoryKey: a.inventoryKey, shortageKey: a.shortageKey, confidence: a.confidence,
       rationale: a.rationale.slice(0, 1000), status: 'pending', runId: a.runId, createdAt: ctx.timestamp });
     ctx.db.agentRun.id.update({ ...run, matches: run.matches + 1 });
   }
@@ -1128,62 +1157,113 @@ export const dismissMatch = spacetimedb.reducer({ key: t.string() }, (ctx, a) =>
   ctx.db.matchSuggestion.key.update({ ...s, status: 'dismissed' });
 });
 
-// ── Read access: members-only views over private tables ─────────────────────
+// ── Read access: incrementally maintained, network-scoped views ─────────────
+//
+// Base tables are private. Each view is a query-builder semijoin: rows of a table whose networkId
+// matches a member row for the caller. SpacetimeDB maintains these incrementally and evaluates
+// them per subscriber; non-members get nothing.
 
-type ViewDb = { member: { identity: { find(id: string): unknown } } };
-function isMember(db: ViewDb, sender: { toHexString(): string }) { return !!db.member.identity.find(sender.toHexString()); }
+type Q = ViewCtx<InferSchema<typeof spacetimedb>>;
+const me = (ctx: Q) => ctx.from.member.where(m => m.identity.eq(ctx.sender.toHexString()));
+const meAdmin = (ctx: Q) => me(ctx).where(m => m.role.eq('admin'));
 
 export const networkStatus = spacetimedb.anonymousView(
   { name: 'network_status', public: true },
   t.array(t.object('NetworkStatusRow', { id: t.u32(), initialized: t.bool(), sandbox: t.bool() })),
   ctx => {
     let initialized = false;
-    for (const _a of ctx.db.account.iter()) { initialized = true; break; }
-    if (!initialized) for (const _m of ctx.db.member.iter()) { initialized = true; break; }
+    for (const _m of ctx.db.member.iter()) { initialized = true; break; }
     if (!initialized) for (const _s of ctx.db.site.iter()) { initialized = true; break; }
     return [{ id: 1, initialized, sandbox: ctx.db.networkConfig.id.find(CONFIG_ID)?.sandbox ?? false }];
   }
 );
 
-const AccountRow = t.object('AccountRow', { email: t.string(), name: t.string(), role: t.string(), siteId: t.u32(),
-  createdAt: t.timestamp(), lastLoginMicros: t.i64(), locked: t.bool() });
-export const accountView = spacetimedb.view({ name: 'account_view', public: true }, t.array(AccountRow), ctx => {
-  const me = ctx.db.member.identity.find(ctx.sender.toHexString());
-  if (!me || me.role !== 'admin') return [];
-  // Lockouts clear on the next successful sign-in; a nonzero lock time means one was triggered.
-  return [...ctx.db.account.iter()].map(a => ({ email: a.email, name: a.name, role: a.role, siteId: a.siteId,
-    createdAt: a.createdAt, lastLoginMicros: a.lastLoginMicros, locked: a.lockedUntilMicros > 0n }));
-});
-export const myLoginStatus = spacetimedb.view({ name: 'my_login_status', public: true }, t.array(loginStatus.rowType),
-  ctx => { const s = ctx.db.loginStatus.identity.find(ctx.sender.toHexString()); return s ? [s] : []; });
-
 export const siteView = spacetimedb.view({ name: 'site_view', public: true }, t.array(site.rowType),
-  ctx => isMember(ctx.db, ctx.sender) ? [...ctx.db.site.iter()] : []);
+  ctx => me(ctx).rightSemijoin(ctx.from.site, (m, x) => m.networkId.eq(x.networkId)));
 export const memberView = spacetimedb.view({ name: 'member_view', public: true }, t.array(member.rowType),
-  ctx => isMember(ctx.db, ctx.sender) ? [...ctx.db.member.iter()] : []);
+  ctx => me(ctx).rightSemijoin(ctx.from.member, (m, x) => m.networkId.eq(x.networkId)));
 export const inventoryView = spacetimedb.view({ name: 'inventory_view', public: true }, t.array(inventory.rowType),
-  ctx => isMember(ctx.db, ctx.sender) ? [...ctx.db.inventory.iter()] : []);
+  ctx => me(ctx).rightSemijoin(ctx.from.inventory, (m, x) => m.networkId.eq(x.networkId)));
 export const stockEventView = spacetimedb.view({ name: 'stock_event_view', public: true }, t.array(stockEvent.rowType),
-  ctx => isMember(ctx.db, ctx.sender) ? [...ctx.db.stockEvent.iter()] : []);
+  ctx => me(ctx).rightSemijoin(ctx.from.stockEvent, (m, x) => m.networkId.eq(x.networkId)));
 export const transferView = spacetimedb.view({ name: 'transfer_view', public: true }, t.array(transfer.rowType),
-  ctx => isMember(ctx.db, ctx.sender) ? [...ctx.db.transfer.iter()] : []);
+  ctx => me(ctx).rightSemijoin(ctx.from.transfer, (m, x) => m.networkId.eq(x.networkId)));
 export const forecastView = spacetimedb.view({ name: 'forecast_view', public: true }, t.array(forecast.rowType),
-  ctx => isMember(ctx.db, ctx.sender) ? [...ctx.db.forecast.iter()] : []);
+  ctx => me(ctx).rightSemijoin(ctx.from.forecast, (m, x) => m.networkId.eq(x.networkId)));
 export const proposalView = spacetimedb.view({ name: 'proposal_view', public: true }, t.array(proposal.rowType),
-  ctx => isMember(ctx.db, ctx.sender) ? [...ctx.db.proposal.iter()] : []);
+  ctx => me(ctx).rightSemijoin(ctx.from.proposal, (m, x) => m.networkId.eq(x.networkId)));
 export const activityView = spacetimedb.view({ name: 'activity_view', public: true }, t.array(activity.rowType),
-  ctx => isMember(ctx.db, ctx.sender) ? [...ctx.db.activity.iter()] : []);
+  ctx => me(ctx).rightSemijoin(ctx.from.activity, (m, x) => m.networkId.eq(x.networkId)));
 export const configView = spacetimedb.view({ name: 'config_view', public: true }, t.array(networkConfig.rowType),
-  ctx => isMember(ctx.db, ctx.sender) ? [...ctx.db.networkConfig.iter()] : []);
+  ctx => me(ctx).rightSemijoin(ctx.from.networkConfig, (m, x) => m.networkId.eq(x.networkId)));
 export const workerView = spacetimedb.view({ name: 'worker_view', public: true }, t.array(worker.rowType),
-  ctx => isMember(ctx.db, ctx.sender) ? [...ctx.db.worker.iter()] : []);
+  ctx => me(ctx).rightSemijoin(ctx.from.worker, (m, x) => m.networkId.eq(x.networkId)));
 export const leaseView = spacetimedb.view({ name: 'lease_view', public: true }, t.array(lease.rowType),
-  ctx => isMember(ctx.db, ctx.sender) ? [...ctx.db.lease.iter()] : []);
+  ctx => me(ctx).rightSemijoin(ctx.from.lease, (m, x) => m.networkId.eq(x.networkId)));
 export const agentRunView = spacetimedb.view({ name: 'agent_run_view', public: true }, t.array(agentRun.rowType),
-  ctx => isMember(ctx.db, ctx.sender) ? [...ctx.db.agentRun.iter()] : []);
+  ctx => me(ctx).rightSemijoin(ctx.from.agentRun, (m, x) => m.networkId.eq(x.networkId)));
 export const agentStepView = spacetimedb.view({ name: 'agent_step_view', public: true }, t.array(agentStep.rowType),
-  ctx => isMember(ctx.db, ctx.sender) ? [...ctx.db.agentStep.iter()] : []);
+  ctx => me(ctx).rightSemijoin(ctx.from.agentStep, (m, x) => m.networkId.eq(x.networkId)));
 export const matchView = spacetimedb.view({ name: 'match_view', public: true }, t.array(matchSuggestion.rowType),
-  ctx => isMember(ctx.db, ctx.sender) ? [...ctx.db.matchSuggestion.iter()] : []);
+  ctx => me(ctx).rightSemijoin(ctx.from.matchSuggestion, (m, x) => m.networkId.eq(x.networkId)));
 export const metricView = spacetimedb.view({ name: 'metric_view', public: true }, t.array(modelMetric.rowType),
-  ctx => isMember(ctx.db, ctx.sender) ? [...ctx.db.modelMetric.iter()] : []);
+  ctx => me(ctx).rightSemijoin(ctx.from.modelMetric, (m, x) => m.networkId.eq(x.networkId)));
+/** Invitations (with emails) are visible to admins only. */
+export const inviteView = spacetimedb.view({ name: 'invite_view', public: true }, t.array(invite.rowType),
+  ctx => meAdmin(ctx).rightSemijoin(ctx.from.invite, (m, x) => m.networkId.eq(x.networkId)));
+
+// ── HTTP endpoints ──────────────────────────────────────────────────────────
+
+const json = (status: number, body: unknown) => new SyncResponse(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+
+/** Liveness probe; reveals nothing about the network's data. */
+export const health = spacetimedb.httpHandler((ctx, _req) => {
+  const fda = ctx.withTx(tx => tx.db.syncState.id.find(SYNC_ID));
+  return json(200, { status: 'ok', fdaFeed: fda?.feedDate ?? null, fdaRecords: fda?.recordCount ?? 0 });
+});
+
+type IngestRow = { siteId: number; ndc: string; onHand: number; label?: string; unit?: string; dailyUse?: number };
+/**
+ * Inventory feed for a hospital system (ERP, dispensing cabinets). Authenticated with the
+ * INGEST_API_KEY bearer secret; counts are applied atomically and logged as integration events.
+ */
+export const ingestInventory = spacetimedb.httpHandler((ctx, req) => {
+  const key = ctx.env.get('INGEST_API_KEY');
+  if (!key) return json(404, { error: 'Inventory ingest is disabled (INGEST_API_KEY not set).' });
+  const auth = req.headers.get('authorization') ?? '';
+  if (!sameString(auth, `Bearer ${key}`)) return json(401, { error: 'Invalid API key.' });
+  let rows: IngestRow[];
+  try { rows = req.json() as IngestRow[]; } catch { return json(400, { error: 'Body must be a JSON array.' }); }
+  if (!Array.isArray(rows) || rows.length > 2000) return json(400, { error: 'Send an array of at most 2000 rows.' });
+  try {
+    const result = ctx.withTx(tx => {
+      let updated = 0, created = 0;
+      for (const r of rows) {
+        const code = String(r.ndc ?? '').replace(/[^0-9]/g, '');
+        if (code.length < 10 || code.length > 11) throw new Error(`Invalid NDC "${r.ndc}"`);
+        if (!(Number.isFinite(r.onHand) && r.onHand >= 0)) throw new Error(`Invalid onHand for ${code}`);
+        if (!tx.db.site.id.find(r.siteId)) throw new Error(`Unknown site ${r.siteId}`);
+        const key = `${r.siteId}:${code}`;
+        const old = tx.db.inventory.key.find(key);
+        if (old) {
+          if (r.onHand < old.reserved) throw new Error(`${key}: count below reserved quantity`);
+          tx.db.inventory.key.update({ ...old, onHand: r.onHand, revision: old.revision + 1, updatedAt: tx.timestamp });
+          updated++;
+        } else {
+          if (!r.label || !r.unit) throw new Error(`${key}: new products need label and unit`);
+          tx.db.inventory.insert({ key, siteId: r.siteId, ndc: code, label: r.label.slice(0, 200), unit: r.unit.slice(0, 40), onHand: r.onHand, reserved: 0,
+            baselineDaily: Math.max(0, Number(r.dailyUse) || 0), safetyStock: 0, shortageKey: '', revision: 1, updatedAt: tx.timestamp, leadTimeDays: 7, networkId: NET });
+          created++;
+        }
+        tx.db.stockEvent.insert({ id: 0, inventoryKey: key, kind: 'set', delta: r.onHand - (old?.onHand ?? 0), note: 'Integration feed', actor: 'integration', at: tx.timestamp, networkId: NET });
+      }
+      tx.db.activity.insert({ networkId: NET, id: 0, actor: 'integration', action: 'inventory.ingest', detail: `${updated} updated, ${created} created`, at: tx.timestamp });
+      return { updated, created };
+    });
+    return json(200, result);
+  } catch (e) {
+    return json(422, { error: e instanceof Error ? e.message : String(e) });
+  }
+});
+
+export const routes = spacetimedb.httpRouter(new Router().get('/health', health).post('/inventory', ingestInventory));

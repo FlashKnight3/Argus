@@ -20,4 +20,5 @@ export default __t.row({
   bias: __t.f64(),
   workerId: __t.string().name("worker_id"),
   computedAt: __t.timestamp().name("computed_at"),
+  networkId: __t.u32().name("network_id"),
 });

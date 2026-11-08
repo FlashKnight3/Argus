@@ -10,40 +10,13 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
-export const Account = __t.object("Account", {
-  email: __t.string(),
-  name: __t.string(),
-  role: __t.string(),
-  siteId: __t.u32(),
-  passwordHash: __t.string(),
-  salt: __t.string(),
-  failedAttempts: __t.u32(),
-  lockedUntilMicros: __t.i64(),
-  createdAt: __t.timestamp(),
-  lastLoginMicros: __t.i64(),
-});
-export type Account = __Infer<typeof Account>;
-
-export const AccountRow = __t.object("AccountRow", {
-  email: __t.string(),
-  name: __t.string(),
-  role: __t.string(),
-  siteId: __t.u32(),
-  createdAt: __t.timestamp(),
-  lastLoginMicros: __t.i64(),
-  locked: __t.bool(),
-});
-export type AccountRow = __Infer<typeof AccountRow>;
-
-export const AccountView = __t.object("AccountView", {});
-export type AccountView = __Infer<typeof AccountView>;
-
 export const Activity = __t.object("Activity", {
   id: __t.u32(),
   actor: __t.string(),
   action: __t.string(),
   detail: __t.string(),
   at: __t.timestamp(),
+  networkId: __t.u32(),
 });
 export type Activity = __Infer<typeof Activity>;
 
@@ -64,6 +37,7 @@ export const AgentRun = __t.object("AgentRun", {
   matches: __t.u32(),
   createdAt: __t.timestamp(),
   finishedAtMicros: __t.i64(),
+  networkId: __t.u32(),
 });
 export type AgentRun = __Infer<typeof AgentRun>;
 
@@ -77,6 +51,7 @@ export const AgentStep = __t.object("AgentStep", {
   tool: __t.string(),
   content: __t.string(),
   at: __t.timestamp(),
+  networkId: __t.u32(),
 });
 export type AgentStep = __Infer<typeof AgentStep>;
 
@@ -85,6 +60,12 @@ export type AgentStepView = __Infer<typeof AgentStepView>;
 
 export const ConfigView = __t.object("ConfigView", {});
 export type ConfigView = __Infer<typeof ConfigView>;
+
+export const FdaSyncJob = __t.object("FdaSyncJob", {
+  scheduledId: __t.u64(),
+  scheduledAt: __t.scheduleAt(),
+});
+export type FdaSyncJob = __Infer<typeof FdaSyncJob>;
 
 export const Forecast = __t.object("Forecast", {
   key: __t.string(),
@@ -102,6 +83,7 @@ export const Forecast = __t.object("Forecast", {
   pooled: __t.bool(),
   workerId: __t.string(),
   leaseEpoch: __t.u64(),
+  networkId: __t.u32(),
 });
 export type Forecast = __Infer<typeof Forecast>;
 
@@ -122,11 +104,26 @@ export const Inventory = __t.object("Inventory", {
   revision: __t.u32(),
   updatedAt: __t.timestamp(),
   leadTimeDays: __t.f64(),
+  networkId: __t.u32(),
 });
 export type Inventory = __Infer<typeof Inventory>;
 
 export const InventoryView = __t.object("InventoryView", {});
 export type InventoryView = __Infer<typeof InventoryView>;
+
+export const Invite = __t.object("Invite", {
+  email: __t.string(),
+  name: __t.string(),
+  role: __t.string(),
+  siteId: __t.u32(),
+  invitedBy: __t.string(),
+  createdAt: __t.timestamp(),
+  networkId: __t.u32(),
+});
+export type Invite = __Infer<typeof Invite>;
+
+export const InviteView = __t.object("InviteView", {});
+export type InviteView = __Infer<typeof InviteView>;
 
 export const Lease = __t.object("Lease", {
   resource: __t.string(),
@@ -134,19 +131,12 @@ export const Lease = __t.object("Lease", {
   epoch: __t.u64(),
   expiresAtMicros: __t.i64(),
   acquiredAtMicros: __t.i64(),
+  networkId: __t.u32(),
 });
 export type Lease = __Infer<typeof Lease>;
 
 export const LeaseView = __t.object("LeaseView", {});
 export type LeaseView = __Infer<typeof LeaseView>;
-
-export const LoginStatus = __t.object("LoginStatus", {
-  identity: __t.string(),
-  ok: __t.bool(),
-  message: __t.string(),
-  atMicros: __t.i64(),
-});
-export type LoginStatus = __Infer<typeof LoginStatus>;
 
 export const MatchSuggestion = __t.object("MatchSuggestion", {
   key: __t.string(),
@@ -157,6 +147,7 @@ export const MatchSuggestion = __t.object("MatchSuggestion", {
   status: __t.string(),
   runId: __t.u32(),
   createdAt: __t.timestamp(),
+  networkId: __t.u32(),
 });
 export type MatchSuggestion = __Infer<typeof MatchSuggestion>;
 
@@ -170,6 +161,7 @@ export const Member = __t.object("Member", {
   siteId: __t.u32(),
   createdAt: __t.timestamp(),
   email: __t.string(),
+  networkId: __t.u32(),
 });
 export type Member = __Infer<typeof Member>;
 
@@ -189,11 +181,9 @@ export const ModelMetric = __t.object("ModelMetric", {
   bias: __t.f64(),
   workerId: __t.string(),
   computedAt: __t.timestamp(),
+  networkId: __t.u32(),
 });
 export type ModelMetric = __Infer<typeof ModelMetric>;
-
-export const MyLoginStatus = __t.object("MyLoginStatus", {});
-export type MyLoginStatus = __Infer<typeof MyLoginStatus>;
 
 export const NetworkConfig = __t.object("NetworkConfig", {
   id: __t.u32(),
@@ -202,6 +192,7 @@ export const NetworkConfig = __t.object("NetworkConfig", {
   agentAutoRun: __t.bool(),
   shortageLeadMultiplier: __t.f64(),
   llmAllowed: __t.bool(),
+  networkId: __t.u32(),
 });
 export type NetworkConfig = __Infer<typeof NetworkConfig>;
 
@@ -234,6 +225,7 @@ export const Proposal = __t.object("Proposal", {
   createdAt: __t.timestamp(),
   runId: __t.u32(),
   destNdc: __t.string(),
+  networkId: __t.u32(),
 });
 export type Proposal = __Infer<typeof Proposal>;
 
@@ -264,6 +256,7 @@ export const Site = __t.object("Site", {
   contact: __t.string(),
   active: __t.bool(),
   createdAt: __t.timestamp(),
+  networkId: __t.u32(),
 });
 export type Site = __Infer<typeof Site>;
 
@@ -278,6 +271,7 @@ export const StockEvent = __t.object("StockEvent", {
   note: __t.string(),
   actor: __t.string(),
   at: __t.timestamp(),
+  networkId: __t.u32(),
 });
 export type StockEvent = __Infer<typeof StockEvent>;
 
@@ -315,6 +309,7 @@ export const Transfer = __t.object("Transfer", {
   updatedAt: __t.timestamp(),
   reservedAtMicros: __t.i64(),
   destNdc: __t.string(),
+  networkId: __t.u32(),
 });
 export type Transfer = __Infer<typeof Transfer>;
 
@@ -329,6 +324,7 @@ export const Worker = __t.object("Worker", {
   status: __t.string(),
   startedAt: __t.timestamp(),
   lastSeenMicros: __t.i64(),
+  networkId: __t.u32(),
 });
 export type Worker = __Infer<typeof Worker>;
 

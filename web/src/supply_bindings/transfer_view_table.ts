@@ -25,4 +25,5 @@ export default __t.row({
   updatedAt: __t.timestamp().name("updated_at"),
   reservedAtMicros: __t.i64().name("reserved_at_micros"),
   destNdc: __t.string().name("dest_ndc"),
+  networkId: __t.u32().name("network_id"),
 });

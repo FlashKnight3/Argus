@@ -24,4 +24,5 @@ export default __t.row({
   matches: __t.u32(),
   createdAt: __t.timestamp().name("created_at"),
   finishedAtMicros: __t.i64().name("finished_at_micros"),
+  networkId: __t.u32().name("network_id"),
 });

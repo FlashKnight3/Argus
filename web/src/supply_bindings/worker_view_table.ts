@@ -18,4 +18,5 @@ export default __t.row({
   status: __t.string(),
   startedAt: __t.timestamp().name("started_at"),
   lastSeenMicros: __t.i64().name("last_seen_micros"),
+  networkId: __t.u32().name("network_id"),
 });

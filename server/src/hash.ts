@@ -1,8 +1,4 @@
-/**
- * Password hashing inside the module (no Node crypto in the SpacetimeDB runtime).
- * Iterated, salted SHA-256: h0 = SHA256(salt ":" password), h(i+1) = SHA256(h(i) ":" salt).
- * Prototype-grade; a production deployment should use institutional SSO instead.
- */
+/** SHA-256 for the module runtime (no Node crypto there). Used for stable FDA record keys and API-key comparison. */
 const K = new Uint32Array([
   0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
   0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
@@ -58,15 +54,8 @@ export function sha256Hex(text: string): string {
   return Array.from(h, x => x.toString(16).padStart(8, '0')).join('');
 }
 
-export const HASH_ROUNDS = 2048;
-
-export function hashPassword(salt: string, password: string): string {
-  let h = sha256Hex(`${salt}:${password}`);
-  for (let i = 0; i < HASH_ROUNDS; i++) h = sha256Hex(`${h}:${salt}`);
-  return h;
-}
-
-export function sameHash(a: string, b: string): boolean {
+/** Constant-time string comparison. */
+export function sameString(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);

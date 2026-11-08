@@ -4,7 +4,6 @@ import { assignLeases, leaseActions } from './leases.ts';
 import { backtestItem, DAY_MS, forecastItem, poolRates, summarizeBacktest, windowStats, type UsageEvent } from './model.ts';
 import { digits, isCurrent, matchCandidates } from './ndc.ts';
 import { maxGive, planTransfers, type PlanItem } from './planner.ts';
-import { fetchFda } from './fda.ts';
 import { AGENT_MODEL, runLlmAgent, type AgentToolbox } from './llm.ts';
 import type Anthropic from '@anthropic-ai/sdk';
 import { createHash } from 'node:crypto';
@@ -14,7 +13,6 @@ const HEARTBEAT_MS = 2000;
 const DEBOUNCE_MS = 200;
 const FORECAST_MAX_AGE_MS = 10 * 60_000;
 const METRIC_INTERVAL_MS = 60_000;
-const FDA_REFRESH_MS = 24 * 3600_000;
 const AUTO_RUN_COOLDOWN_MS = 60_000;
 
 const VIEWS = ['site_view', 'member_view', 'inventory_view', 'stock_event_view', 'transfer_view', 'forecast_view',
@@ -58,14 +56,13 @@ export class AgentWorker {
   ready = false;
   private timers: NodeJS.Timeout[] = [];
   private debounce: NodeJS.Timeout | null = null;
-  private busy = { sites: false, agent: false, fda: false };
+  private busy = { sites: false, agent: false };
   private written = new Map<string, string>();   // inventory key → input signature last written
   private lastMetric = new Map<number, number>(); // site → ms
   private lastAutoSignature = '';
   private lastAutoAt = 0;
-  private myFdaRun = '';
   private stopped = false;
-  readonly stats = { forecasts: 0, fenced: 0, runs: 0, fdaImports: 0 };
+  readonly stats = { forecasts: 0, fenced: 0, runs: 0 };
 
   constructor(private opts: WorkerOptions) {}
 
@@ -128,7 +125,8 @@ export class AgentWorker {
     return [...this.db.workerView.iter()].filter(w => w.status === 'online').map(w => w.id).sort();
   }
   private resources(): string[] {
-    return [...[...this.db.siteView.iter()].filter(s => s.active).map(s => `site:${s.id}`), 'fda', 'agent'];
+    // The FDA import runs inside the database as a scheduled procedure; workers own forecasting and the agent.
+    return [...[...this.db.siteView.iter()].filter(s => s.active).map(s => `site:${s.id}`), 'agent'];
   }
 
   // ── Heartbeat and lease reconciliation ───────────────────────────────────
@@ -146,7 +144,7 @@ export class AgentWorker {
     const { acquire, release } = leaseActions(this.opts.workerId, assignment, leases, BigInt(Date.now()) * 1000n);
     for (const resource of release) {
       // Hand off only between units of work; a lease in use is released on a later tick.
-      if ((resource === 'agent' && this.busy.agent) || (resource === 'fda' && this.busy.fda) || (resource.startsWith('site:') && this.busy.sites)) continue;
+      if ((resource === 'agent' && this.busy.agent) || (resource.startsWith('site:') && this.busy.sites)) continue;
       try { await this.reducers.releaseLease({ workerId: this.opts.workerId, resource }); this.log('info', `Released ${resource} to ${assignment.get(resource) ?? 'nobody'}`); }
       catch (e) { this.log('warn', `Release ${resource}: ${errText(e)}`); }
     }
@@ -165,7 +163,6 @@ export class AgentWorker {
     if (!this.ready || !this.authorized()) return;
     void this.siteWork();
     void this.agentWork();
-    void this.fdaWork();
   }
 
   private fenced(e: unknown): boolean {
@@ -446,36 +443,6 @@ export class AgentWorker {
     };
   }
 
-  // ── FDA import ────────────────────────────────────────────────────────────
-
-  private async fdaWork() {
-    const epoch = this.heldEpoch('fda');
-    if (epoch === null || this.busy.fda) return;
-    const sync = this.db.syncState.id.find(1);
-    if (!sync) return;
-    const stale = sync.status === 'never'
-      || (sync.status === 'complete' && Date.now() - ms(sync.completedAt) > FDA_REFRESH_MS)
-      || (sync.status === 'running' && sync.runId !== this.myFdaRun);
-    if (!stale) return;
-    this.busy.fda = true;
-    try {
-      this.log('info', sync.status === 'running' ? `Taking over an interrupted FDA import (${sync.runId})` : 'Downloading the full FDA shortage feed');
-      const { feedDate, rows } = await fetchFda();
-      if (this.heldEpoch('fda') !== epoch) { this.log('warn', 'Lost the fda lease during download; discarding.'); return; }
-      const runId = `${new Date().toISOString().replace(/[-:.]/g, '')}-${this.opts.workerId}`;
-      this.myFdaRun = runId;
-      const base = { workerId: this.opts.workerId, leaseEpoch: epoch };
-      await this.reducers.beginFdaSync({ runId, ...base });
-      for (let i = 0; i < rows.length; i += 200) {
-        await this.reducers.importFdaBatch({ runId, rowsJson: JSON.stringify(rows.slice(i, i + 200)), ...base });
-      }
-      await this.reducers.finishFdaSync({ runId, feedDate, ...base });
-      this.stats.fdaImports++;
-      this.log('info', `Imported ${rows.length} FDA records (feed ${feedDate})`);
-    } catch (e) {
-      if (!this.fenced(e)) this.log('error', `FDA import failed: ${errText(e)}`);
-    } finally { this.busy.fda = false; }
-  }
 }
 
 export { micros };

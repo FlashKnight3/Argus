@@ -18,4 +18,5 @@ export default __t.row({
   note: __t.string(),
   actor: __t.string(),
   at: __t.timestamp(),
+  networkId: __t.u32().name("network_id"),
 });

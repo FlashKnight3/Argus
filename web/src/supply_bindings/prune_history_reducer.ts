@@ -11,8 +11,5 @@ import {
 } from "spacetimedb";
 
 export default {
-  runId: __t.string(),
-  rowsJson: __t.string(),
-  workerId: __t.string(),
-  leaseEpoch: __t.u64(),
+  maxEvents: __t.u32(),
 };

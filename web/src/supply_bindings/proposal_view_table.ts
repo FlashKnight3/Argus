@@ -21,4 +21,5 @@ export default __t.row({
   createdAt: __t.timestamp().name("created_at"),
   runId: __t.u32().name("run_id"),
   destNdc: __t.string().name("dest_ndc"),
+  networkId: __t.u32().name("network_id"),
 });
