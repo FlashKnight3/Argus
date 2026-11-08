@@ -71,6 +71,9 @@ function RequestForm({ state, queue, notify, onClose }: { state: SupplyState; qu
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const products = state.inventory.filter(i => i.siteId === source);
+  const product = products.find(p => p.ndc === ndc);
+  const free = product ? product.onHand - product.reserved : 0;
+  const tooMany = !!product && Number(qty) > free;
   const save = async () => {
     setBusy(true);
     try {
@@ -80,12 +83,13 @@ function RequestForm({ state, queue, notify, onClose }: { state: SupplyState; qu
     } catch (e) { notify(errorText(e), true); } finally { setBusy(false); }
   };
   return <Modal title="Request stock" subtitle="Ask another site to send you a product. Nothing is reserved until the source approves." onClose={onClose}
-    footer={<><button className="button ghost" onClick={onClose}>Cancel</button><button className="button primary" disabled={busy || !source || !dest || !ndc || !(Number(qty) > 0)} onClick={save}>Send request</button></>}>
+    footer={<><button className="button ghost" onClick={onClose}>Cancel</button><button className="button primary" disabled={busy || !source || !dest || !ndc || !(Number(qty) > 0) || tooMany} onClick={save}>Send request</button></>}>
     <div className="form-grid">
       <label>From<select value={source} onChange={e => { setSource(Number(e.target.value)); setNdc(''); }}><option value={0}>Choose site</option>{state.sites.filter(s => s.id !== dest).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
       <label>To<select value={dest} onChange={e => setDest(Number(e.target.value))} disabled={state.me?.role !== 'admin'}><option value={0}>Choose site</option>{state.sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
       <label className="full">Product<select value={ndc} onChange={e => setNdc(e.target.value)} disabled={!source}><option value="">{source ? 'Choose product' : 'Choose the source site first'}</option>{products.map(p => <option key={p.key} value={p.ndc}>{p.label} · {number(p.onHand - p.reserved)} {p.unit} free</option>)}</select></label>
-      <label>Quantity<input type="number" min="0" step="any" value={qty} onChange={e => setQty(e.target.value)} /></label>
+      <label>Quantity{product && <span className="help">{free} {product.unit} free at the source</span>}<input type="number" min="0" max={free || undefined} step="any" value={qty} onChange={e => setQty(e.target.value)} style={tooMany ? { borderColor: 'var(--red)' } : undefined} />
+        {tooMany && <span className="help" style={{ color: 'var(--red)' }}>The source only has {free} free.</span>}</label>
       <label>Reason<input value={reason} onChange={e => setReason(e.target.value)} placeholder="Optional" /></label>
     </div>
   </Modal>;

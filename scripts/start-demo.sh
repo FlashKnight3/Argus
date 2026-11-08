@@ -19,6 +19,10 @@ cleanup() {
   wait 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
+# Local secrets and settings (ANTHROPIC_API_KEY, SPACETIMEAUTH_CLIENT_ID, …) live in a git-ignored .env file.
+if [ -f "$ROOT/.env" ]; then set -a; . "$ROOT/.env"; set +a; fi
+if [ -n "${ANTHROPIC_API_KEY:-}" ]; then echo "Agent: Claude enabled (ANTHROPIC_API_KEY found)."
+else echo "Agent: built-in planner only. Put ANTHROPIC_API_KEY=… in $ROOT/.env to let the agent answer questions with Claude."; fi
 # The SpacetimeDB installer puts the CLI in ~/.local/bin, which non-login shells often miss.
 export PATH="$PATH:$HOME/.local/bin"
 for binary in spacetime node curl; do command -v "$binary" >/dev/null || { echo "Missing $binary" >&2; exit 1; }; done

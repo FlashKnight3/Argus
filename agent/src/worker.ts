@@ -323,7 +323,7 @@ export class AgentWorker {
             await toolbox.step('error', '', `LLM unavailable (${errText(e)}); falling back to the deterministic planner.`);
             summary = `LLM fallback. ${await this.runRules(toolbox)}`;
           }
-        } else summary = await this.runRules(toolbox);
+        } else summary = await this.runRules(toolbox, queued.trigger === 'manual' ? queued.note : '');
       } catch (e) {
         if (this.fenced(e)) return;
         status = 'failed';
@@ -338,7 +338,9 @@ export class AgentWorker {
   }
 
   /** Deterministic planner: network-wide multi-source transfer drafts plus FDA match suggestions. */
-  async runRules(tools: AgentToolbox): Promise<string> {
+  async runRules(tools: AgentToolbox, note = ''): Promise<string> {
+    if (note) await tools.step('thought', '', `You asked: “${note}”. Claude isn't enabled on these workers (no ANTHROPIC_API_KEY, or Claude is turned off in Settings), `
+      + 'so this run used the built-in planner, which drafts transfers and FDA links but can\'t answer questions. Add the key to .env and restart to get answers.');
     const items = this.planItems();
     const atRisk = items.filter(i => i.risk === 'critical' || i.pStockout >= 0.5);
     await tools.step('plan', '', `Deterministic planner: ${items.length} items, ${atRisk.length} at risk; checking surplus at other sites and unlinked FDA notices.`);

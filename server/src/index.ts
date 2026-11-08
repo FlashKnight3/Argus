@@ -485,6 +485,8 @@ export const onConnect = spacetimedb.clientConnected(ctx => {
 export const sweep = spacetimedb.reducer({ onSchedule: sweepJob }, { arg: sweepJob.rowType }, (ctx, _a) => {
   const t0 = now(ctx);
   for (const l of [...ctx.db.lease.iter()]) {
+    // Jobs that no longer exist (e.g. the old worker-side `fda` import) are removed.
+    if (!validResource(ctx, l.resource)) { ctx.db.lease.resource.delete(l.resource); continue; }
     if (l.holder && l.expiresAtMicros <= t0) ctx.db.lease.resource.update({ ...l, holder: '' });
   }
   const offline = new Set<string>();
@@ -855,6 +857,9 @@ function requestTransfer(ctx: Ctx, sourceSiteId: number, destSiteId: number, cod
   if (!ctx.db.site.id.find(destSiteId)) throw new SenderError('Destination site not found.');
   const source = ctx.db.inventory.key.find(invKey(sourceSiteId, code));
   if (!source) throw new SenderError('Source site does not stock this product.');
+  const free = source.onHand - source.reserved;
+  if (quantity > free)
+    throw new SenderError(`${ctx.db.site.id.find(sourceSiteId)?.name ?? `Site ${sourceSiteId}`} has only ${free} ${source.unit} of ${source.label} free; request ${free} or less.`);
   const into = destCode && destCode !== code ? destCode : '';
   const dest = ctx.db.inventory.key.find(invKey(destSiteId, into || code));
   if (into && (!dest || !equivalent(ctx, source, dest))) throw new SenderError('Destination product is not an equivalent (same RxCUI) product.');
