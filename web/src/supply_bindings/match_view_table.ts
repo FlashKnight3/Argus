@@ -19,4 +19,5 @@ export default __t.row({
   status: __t.string(),
   runId: __t.u32().name("run_id"),
   createdAt: __t.timestamp().name("created_at"),
+  networkId: __t.u32().name("network_id"),
 });

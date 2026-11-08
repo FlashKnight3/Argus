@@ -27,7 +27,9 @@ for binary in spacetime node curl; do command -v "$binary" >/dev/null || { echo 
 deps_ok() {
   local f
   for f in node_modules/spacetimedb/dist/server/index.mjs node_modules/spacetimedb/dist/server/index.d.ts \
-           node_modules/.bin/tsc node_modules/.bin/vite node_modules/tsx/package.json node_modules/@anthropic-ai/sdk/package.json; do
+           node_modules/.bin/tsc node_modules/.bin/vite node_modules/tsx/package.json node_modules/@anthropic-ai/sdk/package.json \
+           node_modules/react-oidc-context/dist/esm/react-oidc-context.js node_modules/oidc-client-ts/dist/esm/oidc-client-ts.js \
+           node_modules/jwt-decode/build/esm/index.js; do
     [ -e "$ROOT/$f" ] || return 1
   done
 }
@@ -35,6 +37,10 @@ if ! deps_ok; then
   echo "Installing JavaScript dependencies…"
   (cd "$ROOT" && npm ci --no-fund --no-audit)
   deps_ok || { echo "Dependencies are still incomplete after npm ci." >&2; exit 1; }
+fi
+# A configured OIDC client must be accepted by the module and used by the browser.
+if [ -n "${SPACETIMEAUTH_CLIENT_ID:-}" ]; then
+  export OIDC_CLIENT_IDS="${OIDC_CLIENT_IDS:-$SPACETIMEAUTH_CLIENT_ID}"
 fi
 if curl -fsS -o /dev/null http://127.0.0.1:3000/v1/ping 2>/dev/null; then
   echo "Using SpacetimeDB already running on port 3000."
@@ -68,6 +74,7 @@ WEB_PORT="${ARGUS_SUPPLY_WEB_PORT:-5173}"
 while (echo > "/dev/tcp/127.0.0.1/$WEB_PORT") >/dev/null 2>&1; do WEB_PORT=$((WEB_PORT + 1)); done
 # The dashboard offers admins a one-click grant for this identity; it never grants on its own.
 (cd "$ROOT/web" && VITE_ARGUS_WORKER_IDENTITY="$WORKER_IDENTITY" VITE_SPACETIMEDB_DB_NAME="$DB_NAME" \
+  VITE_SPACETIMEAUTH_CLIENT_ID="${SPACETIMEAUTH_CLIENT_ID:-}" \
   exec "$ROOT/node_modules/.bin/vite" --host --port "$WEB_PORT" --strictPort) > "$LOG_DIR/web.log" 2>&1 &
 WEB_PID=$!
 PIDS+=("$WEB_PID")

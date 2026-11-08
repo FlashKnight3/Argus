@@ -26,8 +26,8 @@ npm run test:integration   # needs SpacetimeDB on :3000; uses the live FDA feed
 This publishes the module to a fresh `argus-supply-verify-<timestamp>` database, runs two real workers in-process, and deletes the database afterwards. It checks, in order:
 
 1. Base tables are private; views show members everything and outsiders nothing.
-2. Accounts: a wrong password shows nothing; the right one grants access scoped to the role (a manager can't create sites); 5 failures lock the account; an admin reset unlocks it; sign-out removes access.
-3. Five leases split across two workers.
+2. OIDC: anonymous and wrong-audience tokens cannot bootstrap; the verified owner creates the network, and an invited email joins with its assigned role and site. Outsiders cannot see private views.
+3. Four leases split across two workers.
 4. The full FDA feed is imported exactly once.
 5. Forecasts arrive within seconds of an inventory change; the destination is critical.
 6. A replayed operation ID is applied once.
@@ -41,7 +41,7 @@ This publishes the module to a fresh `argus-supply-verify-<timestamp>` database,
 14. An equivalent product (two real FDA packages sharing an RxCUI) is drafted across NDCs, accepted, shipped, and received into the destination's own NDC item.
 15. A killed worker's site lease moves to the survivor at a higher epoch, which resumes forecasting.
 
-Last run (2026-11-07): all 15 passed; 1,581 FDA records; failover in 11.5 s (epoch 1 → 2).
+The integration test currently reports 16 checks, including the authenticated HTTP inventory endpoint. Its live FDA record count and failover time vary by run.
 
 ## Manual checks performed
 

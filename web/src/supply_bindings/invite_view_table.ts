@@ -11,11 +11,11 @@ import {
 } from "spacetimedb";
 
 export default __t.row({
-  email: __t.string(),
+  email: __t.string().primaryKey(),
   name: __t.string(),
   role: __t.string(),
   siteId: __t.u32().name("site_id"),
+  invitedBy: __t.string().name("invited_by"),
   createdAt: __t.timestamp().name("created_at"),
-  lastLoginMicros: __t.i64().name("last_login_micros"),
-  locked: __t.bool(),
+  networkId: __t.u32().name("network_id"),
 });

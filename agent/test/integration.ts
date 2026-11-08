@@ -1,12 +1,15 @@
 /**
  * End-to-end verification against a disposable database (never argus-supply).
  *   bash scripts/test-integration.sh
- * Exercises: read privacy, two live workers splitting leases, change-driven forecasts, fencing,
- * failover, idempotent replays, revision conflicts, reservation expiry, the agent (rules mode),
- * FDA matching, and the human transfer flow. Imports the live FDA feed.
+ * Exercises: OIDC sign-in (a local test issuer standing in for SpacetimeAuth) and invitations,
+ * network-scoped views, the in-database FDA import (scheduled procedure with HTTP), HTTP endpoints,
+ * two live workers splitting leases, change-driven forecasts, fencing, failover, idempotent replays,
+ * revision conflicts, reservation expiry, the agent (rules mode), FDA matching, equivalent products,
+ * and the human transfer flow. Imports the live FDA feed.
  */
 import assert from 'node:assert/strict';
 import { DbHttp, newIdentity } from '../src/http.ts';
+import { idToken, startIssuer, TEST_CLIENT } from './oidc.ts';
 import { AgentWorker } from '../src/worker.ts';
 
 const host = process.env.ARGUS_SUPPLY_DB_HOST ?? 'http://127.0.0.1:3000';
@@ -29,45 +32,71 @@ async function rejects(p: Promise<unknown>, pattern: RegExp, label: string) {
   throw new Error(`Expected rejection: ${label}`);
 }
 
-const ownerId = await newIdentity(host), serviceId = await newIdentity(host), outsiderId = await newIdentity(host);
-const owner = new DbHttp(host, db, ownerId.token);
+const issuer = await startIssuer();
+const ownerTok = idToken({ sub: 'owner-1', email: 'owner@verify.test', name: 'Verification Admin' });
+const managerTok = idToken({ sub: 'manager-1', email: 'manager@verify.test', name: 'Site Manager' });
+const outsiderTok = idToken({ sub: 'outsider-1', email: 'outsider@verify.test', name: 'Outsider' });
+const wrongAudTok = idToken({ sub: 'evil-1', email: 'owner@verify.test', aud: 'client_someone_else' });
+const anonId = await newIdentity(host), serviceId = await newIdentity(host);
+const owner = new DbHttp(host, db, ownerTok);
+const manager = new DbHttp(host, db, managerTok);
+const outsider = new DbHttp(host, db, outsiderTok);
+const anonymous = new DbHttp(host, db, anonId.token);
+const wrongAud = new DbHttp(host, db, wrongAudTok);
 const service = new DbHttp(host, db, serviceId.token);
-const outsider = new DbHttp(host, db, outsiderId.token);
 
-// ── Setup and privacy ───────────────────────────────────────────────────────
+// ── Sign-in (OIDC) and invitations ──────────────────────────────────────────
 assert.equal((await owner.sql('SELECT * FROM network_status'))[0]?.initialized, false);
-await owner.call('bootstrap_network', 'Verification Admin', 'admin@verify.test', 'verify-password', 'Source Pharmacy', 'Test');
+await rejects(anonymous.call('bootstrap_network', 'Site', 'X'), /Sign in/, 'anonymous cannot create the network');
+await rejects(wrongAud.call('bootstrap_network', 'Site', 'X'), /not accepted/, 'token for another client is refused');
+await owner.call('bootstrap_network', 'Source Pharmacy', 'Test');
+type Mem = { identity: string; email: string; name: string; role: string; site_id: number };
+const ownerRow = (await owner.sql<Mem>('SELECT * FROM member_view'))[0];
+assert.equal(ownerRow.email, 'owner@verify.test'); assert.equal(ownerRow.role, 'admin');
 await owner.call('create_site', 'Destination Pharmacy', 'Test', '');
 await owner.call('create_site', 'Third Pharmacy', 'Test', '');
+await rejects(owner.call('bootstrap_network', 'y', 'z'), /already been created/, 'second bootstrap');
+pass(`OIDC: anonymous and wrong-audience tokens are refused; the signed-in owner (${ownerRow.email}) creates the network as admin`);
+
+await rejects(owner.call('grant_member', anonId.identity, 'x', 'manager', 2), /Invite people by email/, 'people cannot be granted by identity');
 await owner.call('grant_member', serviceId.identity, 'Verification workers', 'service', 0);
-await rejects(owner.call('bootstrap_network', 'x', 'x@y.test', 'password123', 'y', 'z'), /already been created/, 'second bootstrap');
+await owner.call('invite_member', 'Manager@Verify.test', 'Site Manager', 'manager', 2);
+assert.equal((await owner.sql('SELECT * FROM invite_view')).length, 1);
+// A verified person's first request triggers clientConnected, which consumes the invitation.
+assert.equal((await manager.sql('SELECT * FROM site_view')).length, 3);
+assert.equal((await owner.sql('SELECT * FROM invite_view')).length, 0);
+await manager.call('join_network');
+const mgr = (await owner.sql<Mem>('SELECT * FROM member_view')).find(m => m.email === 'manager@verify.test')!;
+assert.equal(mgr.role, 'manager'); assert.equal(mgr.site_id, 2);
+assert.equal((await manager.sql('SELECT * FROM site_view')).length, 3);
+assert.equal((await manager.sql('SELECT * FROM invite_view')).length, 0);
+await rejects(manager.call('create_site', 'Sneaky', '', ''), /authorized/, 'manager cannot create sites');
+await rejects(outsider.call('join_network'), /No invitation/, 'uninvited person cannot join');
 await rejects(outsider.sql('SELECT * FROM inventory'), /private|no such table|not.*scope/i, 'outsider reads private table');
 assert.equal((await outsider.sql('SELECT * FROM site_view')).length, 0);
-assert.equal((await owner.sql('SELECT * FROM site_view')).length, 3);
-pass('base tables are private; views show members everything and outsiders nothing');
+assert.equal((await outsider.sql('SELECT * FROM member_view')).length, 0);
+pass('invitations: invited email joins with its role and site; invites are admin-only; uninvited and anonymous callers see nothing');
 
-// ── Accounts: sign-in, lockout, sign-out ────────────────────────────────────
-type Status = { ok: boolean; message: string };
-const statusOf = async (c: DbHttp) => (await c.sql<Status>('SELECT * FROM my_login_status'))[0];
-await owner.call('create_account', 'manager@verify.test', 'Site Manager', 'manager', 2, 'manager-pass');
-await outsider.call('sign_in', 'manager@verify.test', 'wrong-pass');
-assert.equal((await statusOf(outsider)).ok, false);
-assert.equal((await outsider.sql('SELECT * FROM site_view')).length, 0);
-await outsider.call('sign_in', 'MANAGER@verify.test', 'manager-pass');
-assert.equal((await statusOf(outsider)).ok, true);
-assert.equal((await outsider.sql('SELECT * FROM site_view')).length, 3);
-await rejects(outsider.call('create_site', 'Sneaky', '', ''), /authorized/, 'manager cannot create sites');
-await outsider.call('sign_out');
-assert.equal((await outsider.sql('SELECT * FROM site_view')).length, 0);
-for (let i = 0; i < 5; i++) await outsider.call('sign_in', 'manager@verify.test', 'nope');
-await outsider.call('sign_in', 'manager@verify.test', 'manager-pass');
-assert.match((await statusOf(outsider)).message, /locked|Too many/);
-assert.equal((await outsider.sql('SELECT * FROM site_view')).length, 0);
-await owner.call('reset_account_password', 'manager@verify.test', 'manager-pass-2');
-await outsider.call('sign_in', 'manager@verify.test', 'manager-pass-2');
-assert.equal((await statusOf(outsider)).ok, true);
-await outsider.call('sign_out');
-pass('accounts: wrong password shows nothing, right password grants site-scoped access, 5 failures lock, admin reset unlocks, sign-out revokes');
+// ── In-database FDA import (scheduled procedure with HTTP) ──────────────────
+const sync = await until('FDA feed imported by the scheduled procedure', async () => {
+  const [st] = await owner.sql<{ status: string; record_count: number; feed_date: string }>('SELECT * FROM sync_state');
+  return st?.status === 'complete' && st.record_count > 100 ? st : undefined;
+}, 120_000);
+pass(`scheduled procedure imported the full FDA feed inside the database (${sync.record_count} records, feed ${sync.feed_date}); no worker involved`);
+
+// ── HTTP endpoints ──────────────────────────────────────────────────────────
+const route = (path: string, init?: RequestInit) => fetch(`${host}/v1/database/${db}/route${path}`, init);
+const health = await (await route('/health')).json() as { status: string; fdaRecords: number };
+assert.equal(health.status, 'ok'); assert.equal(health.fdaRecords, sync.record_count);
+assert.equal((await route('/inventory', { method: 'POST', body: '[]' })).status, 401);
+const ingestKey = process.env.ARGUS_TEST_INGEST_KEY!;
+const ing = await route('/inventory', { method: 'POST', headers: { authorization: `Bearer ${ingestKey}`, 'content-type': 'application/json' },
+  body: JSON.stringify([{ siteId: 3, ndc: '1234567890', label: 'Integration product', unit: 'units', onHand: 40, dailyUse: 2 }]) });
+assert.equal(ing.status, 200, await ing.clone().text());
+assert.deepEqual(await ing.json(), { updated: 0, created: 1 });
+const bad = await route('/inventory', { method: 'POST', headers: { authorization: `Bearer ${ingestKey}` }, body: JSON.stringify([{ siteId: 99, ndc: '1234567890', onHand: 1 }]) });
+assert.equal(bad.status, 422);
+pass('HTTP: /health answers; /inventory rejects a missing key, applies an authenticated batch atomically, and rejects an invalid batch whole');
 
 // ── Two workers share the leases ────────────────────────────────────────────
 const quiet = () => {};
@@ -80,16 +109,11 @@ const leases = () => owner.sql<Lease>('SELECT * FROM lease_view');
 const split = await until('leases split across both workers', async () => {
   const ls = await leases();
   const holders = new Set(ls.filter(l => l.holder).map(l => l.holder));
-  return ls.length === 5 && ls.every(l => l.holder) && holders.size === 2 ? ls : undefined;
+  return ls.length === 4 && ls.every(l => l.holder) && holders.size === 2 ? ls : undefined;
 }, 30_000);
-pass(`5 leases split across 2 workers: ${split.map(l => `${l.resource}→${l.holder.split('-')[1]}`).join(', ')}`);
+pass(`4 leases (3 sites + agent) split across 2 workers: ${split.map(l => `${l.resource}→${l.holder.split('-')[1]}`).join(', ')}`);
 
-await until('FDA feed imported by the fda lease holder', async () => {
-  const [s] = await owner.sql<{ status: string; record_count: number }>('SELECT * FROM sync_state');
-  return s?.status === 'complete' && s.record_count > 100;
-}, 120_000);
 const shortages = await owner.sql<{ key: string; package_ndc: string; status: string; active: boolean }>('SELECT * FROM shortage');
-pass(`full FDA feed imported once (${shortages.length} records)`);
 
 // ── Change-driven forecasts ─────────────────────────────────────────────────
 const target = shortages.find(s => s.active && /current/i.test(s.status) && /^\d{4,5}-\d{3,4}-\d{1,2}$/.test(s.package_ndc))!;
@@ -234,5 +258,6 @@ await until('survivor forecasts the change under its new epoch', async () => {
 pass(`worker killed; site:1 moved to the survivor in ${((Date.now() - t0) / 1000).toFixed(1)} s (epoch ${before.epoch} → ${moved.epoch}) and it resumed forecasting (${ws.length} workers registered)`);
 
 survivor.stop();
+issuer.close();
 console.log('\nAll integration checks passed.');
 process.exit(0);

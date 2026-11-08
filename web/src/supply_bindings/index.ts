@@ -39,59 +39,56 @@ import AcceptProposalReducer from "./accept_proposal_reducer";
 import AcquireLeaseReducer from "./acquire_lease_reducer";
 import AppendAgentStepReducer from "./append_agent_step_reducer";
 import ApproveTransferReducer from "./approve_transfer_reducer";
-import BeginFdaSyncReducer from "./begin_fda_sync_reducer";
 import BootstrapNetworkReducer from "./bootstrap_network_reducer";
 import BootstrapSandboxReducer from "./bootstrap_sandbox_reducer";
+import CancelInviteReducer from "./cancel_invite_reducer";
 import CancelTransferReducer from "./cancel_transfer_reducer";
-import ChangePasswordReducer from "./change_password_reducer";
-import ClaimAccountReducer from "./claim_account_reducer";
 import ClaimAgentRunReducer from "./claim_agent_run_reducer";
 import ClaimSandboxAdminReducer from "./claim_sandbox_admin_reducer";
-import CreateAccountReducer from "./create_account_reducer";
 import CreateSiteReducer from "./create_site_reducer";
 import CreateTransferReducer from "./create_transfer_reducer";
-import DeleteAccountReducer from "./delete_account_reducer";
 import DismissMatchReducer from "./dismiss_match_reducer";
 import DismissProposalReducer from "./dismiss_proposal_reducer";
 import FinishAgentRunReducer from "./finish_agent_run_reducer";
-import FinishFdaSyncReducer from "./finish_fda_sync_reducer";
 import GrantMemberReducer from "./grant_member_reducer";
-import ImportFdaBatchReducer from "./import_fda_batch_reducer";
+import InviteMemberReducer from "./invite_member_reducer";
+import JoinNetworkReducer from "./join_network_reducer";
+import LegacySignInReducer from "./legacy_sign_in_reducer";
+import LegacySignOutReducer from "./legacy_sign_out_reducer";
 import ProposeTransferReducer from "./propose_transfer_reducer";
+import PruneHistoryReducer from "./prune_history_reducer";
 import ReceiveTransferReducer from "./receive_transfer_reducer";
 import RecordStockReducer from "./record_stock_reducer";
 import ReleaseLeaseReducer from "./release_lease_reducer";
 import RequestAgentRunReducer from "./request_agent_run_reducer";
 import RequestAutoAgentRunReducer from "./request_auto_agent_run_reducer";
-import ResetAccountPasswordReducer from "./reset_account_password_reducer";
 import RevokeMemberReducer from "./revoke_member_reducer";
 import SandboxSeedHistoryReducer from "./sandbox_seed_history_reducer";
 import SetNetworkConfigReducer from "./set_network_config_reducer";
 import ShipTransferReducer from "./ship_transfer_reducer";
-import SignInReducer from "./sign_in_reducer";
-import SignOutReducer from "./sign_out_reducer";
 import SuggestMatchReducer from "./suggest_match_reducer";
-import UpdateAccountReducer from "./update_account_reducer";
+import UpdateMemberReducer from "./update_member_reducer";
 import UpsertInventoryReducer from "./upsert_inventory_reducer";
 import WorkerHeartbeatReducer from "./worker_heartbeat_reducer";
 import WriteForecastReducer from "./write_forecast_reducer";
 import WriteModelMetricReducer from "./write_model_metric_reducer";
 
 // Import all procedure arg schemas
+import * as RefreshFdaProcedure from "./refresh_fda_procedure";
 
 // Import all table schema definitions
-import AccountViewRow from "./account_view_table";
 import ActivityViewRow from "./activity_view_table";
 import AgentRunViewRow from "./agent_run_view_table";
 import AgentStepViewRow from "./agent_step_view_table";
 import ConfigViewRow from "./config_view_table";
 import ForecastViewRow from "./forecast_view_table";
 import InventoryViewRow from "./inventory_view_table";
+import InviteViewRow from "./invite_view_table";
 import LeaseViewRow from "./lease_view_table";
 import MatchViewRow from "./match_view_table";
 import MemberViewRow from "./member_view_table";
 import MetricViewRow from "./metric_view_table";
-import MyLoginStatusRow from "./my_login_status_table";
+import MyLegacyLoginStatusRow from "./my_legacy_login_status_table";
 import NetworkStatusRow from "./network_status_table";
 import ProposalViewRow from "./proposal_view_table";
 import ShortageRow from "./shortage_table";
@@ -127,13 +124,6 @@ const tablesSchema = __schema({
       { name: 'sync_state_id_key', constraint: 'unique', columns: ['id'] },
     ],
   }, SyncStateRow),
-  accountView: __table({
-    name: 'account_view',
-    indexes: [
-    ],
-    constraints: [
-    ],
-  }, AccountViewRow),
   activityView: __table({
     name: 'activity_view',
     indexes: [
@@ -176,6 +166,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, InventoryViewRow),
+  inviteView: __table({
+    name: 'invite_view',
+    indexes: [
+    ],
+    constraints: [
+    ],
+  }, InviteViewRow),
   leaseView: __table({
     name: 'lease_view',
     indexes: [
@@ -204,13 +201,13 @@ const tablesSchema = __schema({
     constraints: [
     ],
   }, MetricViewRow),
-  myLoginStatus: __table({
-    name: 'my_login_status',
+  myLegacyLoginStatus: __table({
+    name: 'my_legacy_login_status',
     indexes: [
     ],
     constraints: [
     ],
-  }, MyLoginStatusRow),
+  }, MyLegacyLoginStatusRow),
   networkStatus: __table({
     name: 'network_status',
     indexes: [
@@ -262,39 +259,35 @@ const reducersSchema = __reducers(
   __reducerSchema("acquire_lease", AcquireLeaseReducer),
   __reducerSchema("append_agent_step", AppendAgentStepReducer),
   __reducerSchema("approve_transfer", ApproveTransferReducer),
-  __reducerSchema("begin_fda_sync", BeginFdaSyncReducer),
   __reducerSchema("bootstrap_network", BootstrapNetworkReducer),
   __reducerSchema("bootstrap_sandbox", BootstrapSandboxReducer),
+  __reducerSchema("cancel_invite", CancelInviteReducer),
   __reducerSchema("cancel_transfer", CancelTransferReducer),
-  __reducerSchema("change_password", ChangePasswordReducer),
-  __reducerSchema("claim_account", ClaimAccountReducer),
   __reducerSchema("claim_agent_run", ClaimAgentRunReducer),
   __reducerSchema("claim_sandbox_admin", ClaimSandboxAdminReducer),
-  __reducerSchema("create_account", CreateAccountReducer),
   __reducerSchema("create_site", CreateSiteReducer),
   __reducerSchema("create_transfer", CreateTransferReducer),
-  __reducerSchema("delete_account", DeleteAccountReducer),
   __reducerSchema("dismiss_match", DismissMatchReducer),
   __reducerSchema("dismiss_proposal", DismissProposalReducer),
   __reducerSchema("finish_agent_run", FinishAgentRunReducer),
-  __reducerSchema("finish_fda_sync", FinishFdaSyncReducer),
   __reducerSchema("grant_member", GrantMemberReducer),
-  __reducerSchema("import_fda_batch", ImportFdaBatchReducer),
+  __reducerSchema("invite_member", InviteMemberReducer),
+  __reducerSchema("join_network", JoinNetworkReducer),
+  __reducerSchema("legacy_sign_in", LegacySignInReducer),
+  __reducerSchema("legacy_sign_out", LegacySignOutReducer),
   __reducerSchema("propose_transfer", ProposeTransferReducer),
+  __reducerSchema("prune_history", PruneHistoryReducer),
   __reducerSchema("receive_transfer", ReceiveTransferReducer),
   __reducerSchema("record_stock", RecordStockReducer),
   __reducerSchema("release_lease", ReleaseLeaseReducer),
   __reducerSchema("request_agent_run", RequestAgentRunReducer),
   __reducerSchema("request_auto_agent_run", RequestAutoAgentRunReducer),
-  __reducerSchema("reset_account_password", ResetAccountPasswordReducer),
   __reducerSchema("revoke_member", RevokeMemberReducer),
   __reducerSchema("sandbox_seed_history", SandboxSeedHistoryReducer),
   __reducerSchema("set_network_config", SetNetworkConfigReducer),
   __reducerSchema("ship_transfer", ShipTransferReducer),
-  __reducerSchema("sign_in", SignInReducer),
-  __reducerSchema("sign_out", SignOutReducer),
   __reducerSchema("suggest_match", SuggestMatchReducer),
-  __reducerSchema("update_account", UpdateAccountReducer),
+  __reducerSchema("update_member", UpdateMemberReducer),
   __reducerSchema("upsert_inventory", UpsertInventoryReducer),
   __reducerSchema("worker_heartbeat", WorkerHeartbeatReducer),
   __reducerSchema("write_forecast", WriteForecastReducer),
@@ -303,6 +296,7 @@ const reducersSchema = __reducers(
 
 /** The schema information for all procedures in this module. This is defined the same way as the procedures would have been defined in the server. */
 const proceduresSchema = __procedures(
+  __procedureSchema("refresh_fda", RefreshFdaProcedure.params, RefreshFdaProcedure.returnType),
 );
 
 /** The remote SpacetimeDB module schema, both runtime and type information. */

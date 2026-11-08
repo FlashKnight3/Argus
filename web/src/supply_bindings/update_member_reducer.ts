@@ -11,8 +11,7 @@ import {
 } from "spacetimedb";
 
 export default {
-  runId: __t.string(),
-  feedDate: __t.string(),
-  workerId: __t.string(),
-  leaseEpoch: __t.u64(),
+  identity: __t.string(),
+  role: __t.string(),
+  siteId: __t.u32(),
 };

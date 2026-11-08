@@ -24,4 +24,5 @@ export default __t.row({
   revision: __t.u32(),
   updatedAt: __t.timestamp().name("updated_at"),
   leadTimeDays: __t.f64().name("lead_time_days"),
+  networkId: __t.u32().name("network_id"),
 });

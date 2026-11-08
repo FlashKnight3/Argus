@@ -16,4 +16,5 @@ export default __t.row({
   epoch: __t.u64(),
   expiresAtMicros: __t.i64().name("expires_at_micros"),
   acquiredAtMicros: __t.i64().name("acquired_at_micros"),
+  networkId: __t.u32().name("network_id"),
 });

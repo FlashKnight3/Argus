@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { assignLeases, leaseActions } from '../src/leases.ts';
 import { fdaTo11, localCandidates11, matchCandidates } from '../src/ndc.ts';
 import { maxGive, needOf, planTransfers, type PlanItem } from '../src/planner.ts';
-import { fetchFda, normalizeFda } from '../src/fda.ts';
+import { collectFda, normalizeFda } from '../../server/src/fda.ts';
 
 describe('NDC normalization and FDA matching', () => {
   it('converts hyphenated FDA NDCs to 5-4-2 and enumerates local 10-digit layouts', () => {
@@ -92,20 +92,20 @@ describe('lease assignment', () => {
   });
 });
 
-describe('FDA ingestion', () => {
+describe('FDA ingestion (runs inside the database as a scheduled procedure)', () => {
   it('normalizes with the same stable key as the browser importer', () => {
     const row = normalizeFda({ package_ndc: '0409-4888-10', generic_name: 'Lidocaine', company_name: 'Hospira', presentation: 'Vial' });
     expect(row.key).toHaveLength(24);
     expect(normalizeFda({ package_ndc: ' 0409-4888-10 ', generic_name: 'LIDOCAINE', company_name: 'Hospira', presentation: 'vial' }).key).toBe(row.key);
   });
-  it('refuses a feed whose pages do not add up to the declared total', async () => {
+  it('refuses a feed whose pages do not add up to the declared total', () => {
     const pages = [{ meta: { last_updated: '2026-11-06', results: { total: 3 } }, results: [{ generic_name: 'a' }, { generic_name: 'b' }] }, { results: [] }];
     let i = 0;
-    await expect(fetchFda(async () => pages[i++])).rejects.toThrow(/declared record count/);
+    expect(() => collectFda(() => pages[i++])).toThrow(/declared record count/);
   });
-  it('dedupes a complete feed', async () => {
+  it('dedupes a complete feed', () => {
     const r = { package_ndc: '1-2-3', generic_name: 'x', company_name: 'c', presentation: 'p', status: 'Current' };
-    const out = await fetchFda(async () => ({ meta: { last_updated: '2026-11-06', results: { total: 2 } }, results: [r, r] }));
+    const out = collectFda(() => ({ meta: { last_updated: '2026-11-06', results: { total: 2 } }, results: [r, r] }));
     expect(out.rows).toHaveLength(1);
     expect(out.feedDate).toBe('2026-11-06');
   });

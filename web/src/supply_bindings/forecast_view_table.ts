@@ -26,4 +26,5 @@ export default __t.row({
   pooled: __t.bool(),
   workerId: __t.string().name("worker_id"),
   leaseEpoch: __t.u64().name("lease_epoch"),
+  networkId: __t.u32().name("network_id"),
 });

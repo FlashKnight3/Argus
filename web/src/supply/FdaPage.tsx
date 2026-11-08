@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ExternalLink, Plus, RefreshCw } from 'lucide-react';
-import { isCurrentShortage, ndcDigits, syncFda } from './fda';
+import { isCurrentShortage, ndcDigits } from './fda';
 import { DrugSearch } from './DrugSearch';
 import { Empty, PageHead, Pill, Tabs, date, errorText, number } from './ui';
 import type { Notify } from './App';
@@ -23,13 +23,14 @@ export function FdaPage({ state, actions, notify, track }: {
   const linked = selected ? state.inventory.filter(i => i.shortageKey === selected.key) : [];
   const sync = async () => {
     setBusy(true);
-    try { const n = await syncFda(actions, setProgress); notify(`Imported ${number(n)} FDA records.`); }
-    catch (e) { notify(errorText(e), true); setProgress('Sync failed. Existing data is still available.'); }
+    setProgress('Downloading the full FDA feed inside the database…');
+    try { const message = await actions.refreshFda(); notify(message, /fail|only admins/i.test(message)); }
+    catch (e) { notify(errorText(e), true); }
     finally { setBusy(false); }
   };
 
   return <>
-    <PageHead title="FDA watch" subtitle={state.sync?.status === 'complete' ? `National drug shortage list from the FDA, updated ${state.sync.feedDate}. ${number(state.sync.recordCount)} package records.` : 'National drug shortage list from the FDA.'}
+    <PageHead title="FDA watch" subtitle={state.sync?.status === 'complete' ? `National drug shortage list from the FDA, updated ${state.sync.feedDate}. ${number(state.sync.recordCount)} package records, refreshed automatically every 6 hours by a scheduled procedure inside SpacetimeDB.` : 'National drug shortage list from the FDA.'}
       right={state.me?.role === 'admin' && <button className="button ghost" disabled={busy} onClick={sync}><RefreshCw size={15} className={busy ? 'spin' : ''}/> {busy ? 'Syncing…' : 'Refresh now'}</button>} />
     <Tabs value={tab} onChange={t => { setTab(t); setLimit(50); }} tabs={[{ id: 'current', label: 'Current shortages', count: current.length }, { id: 'all', label: 'All notices' }]} />
     {progress && busy && <div className="notice"><RefreshCw size={15} className="spin"/><span>{progress}</span></div>}
@@ -42,7 +43,7 @@ export function FdaPage({ state, actions, notify, track }: {
           <td><Pill tone={isCurrentShortage(r) ? 'watch' : 'neutral'}>{r.status}</Pill></td></tr>)}
       </tbody></table></div>
         {limit < rows.length && <div style={{ textAlign: 'center', marginTop: 14 }}><button className="button ghost small" onClick={() => setLimit(l => l + 50)}>Show more ({rows.length - limit} left)</button></div>}</>
-        : <div className="card"><Empty title={state.shortages.length ? 'No matches' : 'Not imported yet'} detail={state.shortages.length ? 'Try a broader search or All notices.' : 'Activate the workers (Home) to import the FDA feed.'} /></div>}</div>
+        : <div className="card"><Empty title={state.shortages.length ? 'No matches' : 'Not imported yet'} detail={state.shortages.length ? 'Try a broader search or All notices.' : 'The database imports the FDA feed on its own within a minute of starting.'} /></div>}</div>
       <div className="drawer">{selected ? <>
         <div className="inline" style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}><div><h3>{selected.genericName}</h3><div className="drawer-sub">{selected.companyName}</div></div><Pill tone={isCurrentShortage(selected) ? 'watch' : 'neutral'}>{selected.status}</Pill></div>
         <div className="kv"><div><span>Package NDC</span><b className="mono">{selected.packageNdc || '—'}</b></div><div><span>RxCUI</span><b>{selected.rxcui || '—'}</b></div><div><span>Updated</span><b>{selected.updateDate || '—'}</b></div></div>

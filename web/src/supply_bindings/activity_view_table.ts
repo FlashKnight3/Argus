@@ -16,4 +16,5 @@ export default __t.row({
   action: __t.string(),
   detail: __t.string(),
   at: __t.timestamp(),
+  networkId: __t.u32().name("network_id"),
 });

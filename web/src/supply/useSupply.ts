@@ -1,18 +1,19 @@
 import { useMemo } from 'react';
-import { useReducer, useSpacetimeDB, useTable } from 'spacetimedb/react';
-import { reducers, tables } from '../supply_bindings';
+import { useProcedure, useReducer, useSpacetimeDB, useTable } from 'spacetimedb/react';
+import { procedures, reducers, tables } from '../supply_bindings';
 // View rows share their base table's shape; the generated *View aliases are empty, so use the table types.
 import type {
-  Activity, AgentRun, AgentStep, NetworkConfig as Config, Forecast, Inventory, Lease, MatchSuggestion,
+  Activity, AgentRun, AgentStep, Invite, NetworkConfig as Config, Forecast, Inventory, Lease, MatchSuggestion,
   Member, ModelMetric as Metric, Proposal, Shortage, Site, StockEvent, SyncState, Transfer, Worker,
 } from '../supply_bindings/types';
 
-export type { Activity, AgentRun, AgentStep, Config, Forecast, Inventory, Lease, MatchSuggestion, Member, Metric, Proposal,
+export type { Activity, AgentRun, AgentStep, Invite, Config, Forecast, Inventory, Lease, MatchSuggestion, Member, Metric, Proposal,
   Shortage, Site, StockEvent, SyncState, Transfer, Worker };
 
 export function useSupply() {
   const connection = useSpacetimeDB();
   const [status, statusReady] = useTable(tables.networkStatus);
+  const [legacyLoginStatus] = useTable(tables.myLegacyLoginStatus);
   const [sites, sitesReady] = useTable(tables.siteView);
   const [members, membersReady] = useTable(tables.memberView);
   const [inventory] = useTable(tables.inventoryView);
@@ -30,8 +31,7 @@ export function useSupply() {
   const [agentSteps] = useTable(tables.agentStepView);
   const [matches] = useTable(tables.matchView);
   const [metrics] = useTable(tables.metricView);
-  const [accounts] = useTable(tables.accountView);
-  const [loginStatus] = useTable(tables.myLoginStatus);
+  const [invites] = useTable(tables.inviteView);
   const identity = connection.identity?.toHexString().toLowerCase() ?? '';
 
   return useMemo(() => ({
@@ -40,6 +40,7 @@ export function useSupply() {
     identity,
     initialized: status[0]?.initialized ?? false,
     sandbox: status[0]?.sandbox ?? false,
+    legacyLoginStatus: legacyLoginStatus[0],
     me: members.find(member => member.identity.toLowerCase() === identity),
     sites: [...sites].sort((a, b) => a.id - b.id),
     members,
@@ -58,10 +59,9 @@ export function useSupply() {
     agentSteps: [...agentSteps].sort((a, b) => a.id - b.id),
     matches,
     metrics: [...metrics].sort((a, b) => a.siteId - b.siteId),
-    accounts: [...accounts].sort((a, b) => a.name.localeCompare(b.name)),
-    loginStatus: loginStatus[0],
-  }), [connection.isActive, statusReady, sitesReady, membersReady, identity, status, sites, members, inventory, stockEvents,
-    shortages, syncStates, transfers, forecasts, proposals, activity, configs, workers, leases, agentRuns, agentSteps, matches, metrics, accounts, loginStatus]);
+    invites: [...invites].sort((a, b) => a.email.localeCompare(b.email)),
+  }), [connection.isActive, statusReady, sitesReady, membersReady, identity, status, legacyLoginStatus, sites, members, inventory, stockEvents,
+    shortages, syncStates, transfers, forecasts, proposals, activity, configs, workers, leases, agentRuns, agentSteps, matches, metrics, invites]);
 }
 
 export type SupplyState = ReturnType<typeof useSupply>;
@@ -69,14 +69,12 @@ export type SupplyState = ReturnType<typeof useSupply>;
 export function useActions() {
   return {
     bootstrapNetwork: useReducer(reducers.bootstrapNetwork),
-    signIn: useReducer(reducers.signIn),
-    signOut: useReducer(reducers.signOut),
-    claimAccount: useReducer(reducers.claimAccount),
-    changePassword: useReducer(reducers.changePassword),
-    createAccount: useReducer(reducers.createAccount),
-    updateAccount: useReducer(reducers.updateAccount),
-    resetAccountPassword: useReducer(reducers.resetAccountPassword),
-    deleteAccount: useReducer(reducers.deleteAccount),
+    joinNetwork: useReducer(reducers.joinNetwork),
+    legacySignIn: useReducer(reducers.legacySignIn),
+    legacySignOut: useReducer(reducers.legacySignOut),
+    inviteMember: useReducer(reducers.inviteMember),
+    cancelInvite: useReducer(reducers.cancelInvite),
+    updateMember: useReducer(reducers.updateMember),
     claimSandboxAdmin: useReducer(reducers.claimSandboxAdmin),
     createSite: useReducer(reducers.createSite),
     grantMember: useReducer(reducers.grantMember),
@@ -94,9 +92,8 @@ export function useActions() {
     acceptMatch: useReducer(reducers.acceptMatch),
     dismissMatch: useReducer(reducers.dismissMatch),
     requestAgentRun: useReducer(reducers.requestAgentRun),
-    beginFdaSync: useReducer(reducers.beginFdaSync),
-    importFdaBatch: useReducer(reducers.importFdaBatch),
-    finishFdaSync: useReducer(reducers.finishFdaSync),
+    /** Runs inside the database: downloads the FDA feed over HTTP and commits it in one transaction. */
+    refreshFda: useProcedure(procedures.refreshFda),
   };
 }
 

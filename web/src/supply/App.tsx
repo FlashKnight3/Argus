@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { ArrowLeftRight, Bot, Boxes, ChevronDown, CloudOff, FlaskConical, House, KeyRound, LogOut, Network, Power, Radar, RefreshCw, Server, ShieldCheck } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ArrowLeftRight, Bot, Boxes, ChevronDown, CloudOff, FlaskConical, House, LogIn, LogOut, Network, Power, Radar, RefreshCw, Server, ShieldCheck } from 'lucide-react';
 import { InventoryPage } from './InventoryPage';
 import { TransfersPage } from './TransfersPage';
 import { FdaPage } from './FdaPage';
@@ -7,12 +7,13 @@ import { NetworkPage } from './NetworkPage';
 import { AgentPage } from './AgentPage';
 import { SystemPage } from './SystemPage';
 import { WorkerSetup } from './WorkerSetup';
-import { Connecting, CreateNetwork, Logo, SignIn } from './AuthScreens';
+import { AuthNotConfigured, Connecting, CreateNetwork, LegacySignIn, Logo, NoAccess, SignIn } from './AuthScreens';
+import { useSession, type Session } from './session';
 import { plainPreview } from './Markdown';
 import { DB_NAME } from './connection';
 import { isCurrentShortage } from './fda';
 import { useOfflineQueue, type OfflineQueue } from './offline';
-import { Empty, Modal, PageHead, Pill, Section, date, errorText, number, percent, riskLabel, riskTone, siteName } from './ui';
+import { Empty, PageHead, Pill, Section, date, errorText, number, percent, riskLabel, riskTone, siteName } from './ui';
 import { useActions, useSupply, type Inventory, type SupplyActions, type SupplyState } from './useSupply';
 
 export type Notify = (message: string, bad?: boolean) => void;
@@ -84,41 +85,29 @@ function ConnectionChip({ connected, queue }: { connected: boolean; queue: Offli
   return <div className="status-chip"><span className="live-dot"/> Live</div>;
 }
 
-function AccountDialog({ mode, state, actions, notify, onClose }: { mode: 'password' | 'claim'; state: SupplyState; actions: SupplyActions; notify: Notify; onClose: () => void }) {
-  const [a, setA] = useState('');
-  const [b, setB] = useState('');
+/** One-time move for an admin who signed up before SpacetimeAuth: invite your email, then sign in with it. */
+function SwitchToSignIn({ session, actions, notify }: { session: Session; actions: SupplyActions; notify: Notify }) {
+  const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
-  const submit = async (e: FormEvent) => {
-    e.preventDefault(); setBusy(true);
-    try {
-      if (mode === 'claim') await actions.claimAccount({ email: a, password: b });
-      else await actions.changePassword({ currentPassword: a, newPassword: b });
-      notify(mode === 'claim' ? 'Account secured. Use this email and password to sign in from any browser.' : 'Password changed.');
-      onClose();
-    } catch (err) { notify(errorText(err), true); } finally { setBusy(false); }
+  const go = async () => {
+    setBusy(true);
+    try { await actions.inviteMember({ email, name: '', role: 'admin', siteId: 0 }); session.signIn(); }
+    catch (e) { notify(errorText(e), true); setBusy(false); }
   };
-  return <Modal title={mode === 'claim' ? 'Secure your account' : 'Change password'} onClose={onClose}
-    subtitle={mode === 'claim' ? `You're signed in by this browser only. Add an email and password so you can sign in anywhere, ${state.me?.name ?? ''}.` : undefined}>
-    <form onSubmit={submit} className="form-grid">
-      {mode === 'claim'
-        ? <><label className="full">Email<input type="email" value={a} onChange={e => setA(e.target.value)} required autoComplete="email" /></label>
-            <label className="full">Password<input type="password" value={b} onChange={e => setB(e.target.value)} minLength={8} required autoComplete="new-password" placeholder="At least 8 characters" /></label></>
-        : <><label className="full">Current password<input type="password" value={a} onChange={e => setA(e.target.value)} required autoComplete="current-password" /></label>
-            <label className="full">New password<input type="password" value={b} onChange={e => setB(e.target.value)} minLength={8} required autoComplete="new-password" /></label></>}
-      <div className="full modal-foot" style={{ marginTop: 4 }}><button type="button" className="button ghost" onClick={onClose}>Cancel</button><button className="button primary" disabled={busy}>Save</button></div>
-    </form>
-  </Modal>;
+  return <div className="notice amber"><ShieldCheck size={16}/><span><b>Switch to SpacetimeAuth sign-in.</b> You're signed in on this browser only. Enter the email you'll sign in with; it's invited as an admin, then you sign in and keep full access on any device.</span>
+    <input type="email" placeholder="you@hospital.org" value={email} onChange={e => setEmail(e.target.value)} style={{ minWidth: 220 }} />
+    <button className="button small primary" disabled={busy || !/@/.test(email)} onClick={go}><LogIn size={14}/> Invite & sign in</button></div>;
 }
 
 export default function App() {
   const state = useSupply();
   const actions = useActions();
+  const session = useSession();
   const queue = useOfflineQueue(DB_NAME, state.connected, actions);
   const [view, setView] = useState<View>('home');
   const [siteFilter, setSiteFilter] = useState(0);
   const [everReady, setEverReady] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [dialog, setDialog] = useState<'password' | 'claim' | null>(null);
   const [message, setMessage] = useState<{ text: string; bad: boolean } | null>(null);
   const [prefill, setPrefill] = useState<Prefill>(null);
   const notify: Notify = (text, bad = false) => { setMessage({ text, bad }); window.setTimeout(() => setMessage(null), 5500); };
@@ -130,14 +119,25 @@ export default function App() {
 
   if (!state.connected && !everReady) return <Connecting db={DB_NAME} />;
   if (!state.ready && !everReady) return <Connecting db={DB_NAME} />;
-  if (!state.initialized && !everReady) return <><CreateNetwork actions={actions} />{toast}</>;
-  if (!state.me && !everReady) return <><SignIn state={state} actions={actions} />{toast}</>;
+  if (!state.me && !everReady) {
+    if (!session.enabled) return <>{state.initialized && !state.sandbox
+      ? <LegacySignIn state={state} actions={actions} />
+      : <AuthNotConfigured state={state} actions={actions} />}{toast}</>;
+    if (!state.initialized) return <><CreateNetwork session={session} actions={actions} />{toast}</>;
+    if (!session.signedIn) return <><SignIn state={state} session={session} actions={actions} />{toast}</>;
+    return <><NoAccess state={state} session={session} actions={actions} />{toast}</>;
+  }
   const me = state.me ?? { name: '…', role: 'viewer', siteId: 0, identity: state.identity, email: '' };
   const admin = me.role === 'admin';
+  const legacy = session.enabled && !session.signedIn && !state.sandbox;
   const signOut = async () => {
     setMenuOpen(false);
-    if (!me.email && !state.sandbox) { setDialog('claim'); notify('Add an email and password before signing out, so you can sign back in.', true); return; }
-    try { await actions.signOut(); } catch (e) { notify(errorText(e), true); }
+    if (session.signedIn) { await session.signOut(); return; }
+    if (!session.enabled && me.email && !state.sandbox) {
+      try { await actions.legacySignOut(); } catch (e) { notify(errorText(e), true); }
+      return;
+    }
+    notify(legacy ? 'This browser-only admin has no sign-in to leave. Switch to SpacetimeAuth sign-in first.' : 'Sign-in is not configured for this deployment.', true);
   };
   const go = (v: View) => { setView(v); window.scrollTo(0, 0); };
   const badge = (id: View) => (id === 'transfers' && state.proposals.some(p => p.status === 'pending')) || (id === 'agent' && state.matches.some(m => m.status === 'pending'));
@@ -161,9 +161,8 @@ export default function App() {
           <button className="user-button" onClick={() => setMenuOpen(o => !o)} aria-expanded={menuOpen}><span className="avatar">{me.name.slice(0, 1).toUpperCase()}</span>
             <div><strong>{me.name}</strong><small>{admin ? 'Network admin' : `${me.role === 'manager' ? 'Manager' : 'Viewer'} · ${siteName(state.sites, me.siteId)}`}</small></div><ChevronDown size={15} className="muted"/></button>
           {menuOpen && <div className="dropdown" onMouseLeave={() => setMenuOpen(false)}>
-            <div className="dropdown-head"><strong>{me.name}</strong><small>{me.email || 'Signed in on this browser only'}</small></div>
-            {me.email ? <button onClick={() => { setDialog('password'); setMenuOpen(false); }}><KeyRound size={15}/> Change password</button>
-              : <button onClick={() => { setDialog('claim'); setMenuOpen(false); }}><ShieldCheck size={15}/> Secure account with email</button>}
+            <div className="dropdown-head"><strong>{me.name}</strong><small>{me.email || (state.sandbox ? 'Sandbox guest' : 'Browser-only sign-in')}</small>
+              <small>{session.signedIn ? 'Signed in with SpacetimeAuth' : ''}</small></div>
             <button className="danger" onClick={signOut}><LogOut size={15}/> Sign out</button>
           </div>}
         </div>
@@ -180,12 +179,11 @@ export default function App() {
       </aside>
       <main className="main">
         <WorkerSetup state={state} actions={actions} notify={notify} openNetwork={() => go('network')} />
-        {!me.email && me.role !== 'service' && !state.sandbox && <div className="notice amber"><ShieldCheck size={16}/><span>You're signed in on this browser only. Add an email and password so you can sign in from anywhere.</span><button className="button small primary" onClick={() => setDialog('claim')}>Secure account</button></div>}
+        {legacy && admin && <SwitchToSignIn session={session} actions={actions} notify={notify} />}
         {queue.conflicts.length > 0 && <div className="notice amber"><CloudOff size={16}/><span><b>{queue.conflicts.length} offline change{queue.conflicts.length === 1 ? '' : 's'} could not be applied.</b> {queue.conflicts[0].label}: {queue.conflicts[0].error}</span><button className="button small ghost" onClick={() => queue.discardConflict(queue.conflicts[0].opId)}>Dismiss</button></div>}
         {page}
       </main>
     </div>
-    {dialog && <AccountDialog mode={dialog} state={state} actions={actions} notify={notify} onClose={() => setDialog(null)} />}
     {toast}
   </div>;
 }

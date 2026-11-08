@@ -36,16 +36,17 @@ npm run dev
 | `ARGUS_AGENT_EFFORT` | workers | Overrides the effort level |
 | `VITE_SPACETIMEDB_HOST` | web | Database host (copy `web/.env.example` to `web/.env`) |
 | `VITE_SPACETIMEDB_DB_NAME` | web | Database name |
+| `SPACETIMEAUTH_CLIENT_ID` | launcher | Sets the browser client ID and the module's accepted OIDC audience |
 
 After a schema change, run `npm run generate` then `npm run typecheck`. Adding columns requires a `.default(...)` so existing rows migrate.
 
-## Accounts
+## Sign-in and existing databases
 
-- The person who creates the network chooses an email and password and becomes admin.
-- Admins add people in **Network → People** (role and site, plus a temporary password), edit roles, reset passwords (which also unlocks a locked account), and remove access.
-- Everyone can change their own password from the user menu (top right).
-- An admin from before accounts existed sees **Secure account**: add an email and password once. Sign-out is blocked until then, so you can't lock yourself out.
-- Sandbox networks also allow **Join sandbox** without a password.
+- For a new real network, create a SpacetimeAuth client for the database and add `http://localhost:<web-port>/callback` as a redirect URI. Run `SPACETIMEAUTH_CLIENT_ID=client_… npm run demo`, then sign in and create the first site. The web port appears in the launcher output; it can change if 5173 is busy.
+- Admins invite people by email in **Network → People**, then assign roles and sites. The invited person signs in through SpacetimeAuth with that email.
+- An older local database may still contain `account` and `login_status` rows. The module retains these tables so a publish never deletes their data. With no OIDC client configured, the existing account holder can use the local email/password sign-in bridge; five failed attempts lock it for five minutes. No new local accounts are created.
+- To move an existing admin to SpacetimeAuth, start with the client ID, open the existing browser identity, use the **Switch to SpacetimeAuth sign-in** banner to invite the desired email, then complete sign-in. Verify access before removing any old identity.
+- Sandbox networks allow **Join sandbox** without a password.
 
 ## Getting data in
 
@@ -65,6 +66,8 @@ After a schema change, run `npm run generate` then `npm run typecheck`. Adding c
 | Symptom | Cause and action |
 |---|---|
 | `tsc not found` / `Could not resolve 'spacetimedb/server'` | Incomplete `node_modules`. The demo script now detects this and runs `npm ci`. |
+| `Cannot remove table account: table contains data` | The published module removed an old table while your database still has accounts. Update to the compatibility schema in this repo, then rerun `npm run demo`. Keep `--delete-data=never`; do not wipe the database. |
+| `npm ci` fails with `EACCES` | Some `node_modules` or npm cache files were installed as root. Restore ownership to your user, or use a separate npm cache; avoid running npm with `sudo`. |
 | `Missing spacetime` | The CLI is in `~/.local/bin`; the scripts add it, but check your installation. |
 | Worker log: "Waiting for the service role" | An admin must grant the worker identity (Activate FDA worker, or Network). |
 | Access Pending | The network already has an admin; give that admin the identity shown on screen. In a sandbox, use Join sandbox as admin. |

@@ -17,4 +17,5 @@ export default __t.row({
   agentAutoRun: __t.bool().name("agent_auto_run"),
   shortageLeadMultiplier: __t.f64().name("shortage_lead_multiplier"),
   llmAllowed: __t.bool().name("llm_allowed"),
+  networkId: __t.u32().name("network_id"),
 });
